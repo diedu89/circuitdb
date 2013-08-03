@@ -1,0 +1,9 @@
+#drawing_area{
+	height:500px;
+	width:100%;
+	overflow: auto;
+}
+
+#drawing_area canvas{
+	border: 1px solid black;
+}
