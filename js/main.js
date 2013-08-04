@@ -1,73 +1,100 @@
-var stage, layer, line;
+var stage, layer;
 var isDrawing = false;
-var tLine;
-var startPoint;
-var endPoint;
+var imgNames = ["R","VS","CS","VSC","CSC"];
+var elements = new Array();
+var showCursor=false;
+var cursor;
 $(function(){
 	stage = new Kinetic.Stage({
       container: 'drawing_area',
-      width: 600,
+      width: 800,
       height: 600
    });
 	
 	layer= new Kinetic.Layer();
-	tLine=new Kinetic.Line({stroke:'black', strokeWidth:3});
-	startPoint=new Kinetic.Circle({radius: 3, fill: 'red', stroke: 'black', strokeWidth:.2});
-	endPoint = startPoint.clone();
 
-	for(var i=10;i<600;i+=10){
-		layer.add(new Kinetic.Line({ points:[0,i,600,i], stroke: 'gray', opacity:.5, strokeWidth: .3}));
-		layer.add(new Kinetic.Line({ points:[i,0,i,600], stroke: 'gray', opacity:.5, strokeWidth: .3}));
-	}
+	for(var i=10;i<600;i+=10)
+		layer.add(new Kinetic.Line({ points:[0,i,800,i], stroke: 'gray', opacity:.3, strokeWidth: .5}));
+	for(var i=10;i<800;i+=10)
+		layer.add(new Kinetic.Line({ points:[i,0,i,600], stroke: 'gray', opacity:.3, strokeWidth: .5}));
 
 
-	tLine.hide();
-	startPoint.hide();
-	endPoint.hide();
-
-	layer.add(tLine);
-	layer.add(startPoint);
-	layer.add(endPoint);
+	//layer.add(new Kinetic.Rect({x:50,y:50, width:50, height:50, stroke: 'black', strokeWidth:.5}));
 	stage.add(layer);
 
 	// events assignments
-	stage.on('mousedown',startWiring);
-	stage.on('mouseleave',function(){cancelWiring(true)});
-	stage.on('mouseup', endWiring);
-	stage.on('mousemove', drawing);
-})
+	stage.on('mousedown',placeElement);
+	stage.on('mousemove', moveActions);
 
-function startWiring(e){
-	startPoint.setPosition(e.offsetX, e.offsetY);
-	endPoint.setPosition(e.offsetX, e.offsetY);
-	tLine.setPoints([e.offsetX, e.offsetY, e.offsetX, e.offsetY]);
+	//bizarre problem with kinetic event assignment must to use jquery events
+	$("#drawing_area canvas").mouseleave(hideElement);
+	$("#drawing_area canvas").mouseenter(showElement);
 
-	startPoint.show();
-	endPoint.show();
-	tLine.show();
+	loadImage(0);
 
+	//toolbox elements events
+	$("div.toolbox a").click(selectElement);
+});
+
+function placeElement(e){
+	if(!showCursor) return;
+	cursor.setPosition(
+		Math.round(cursor.getX()/10)*10,
+		Math.round(cursor.getY()/10)*10
+	);
+	layer.add(cursor.clone());
+
+	cursor.hide();
+	showCursor = false;
+	console.log();
 	layer.draw();
 }
 
-function endWiring(){
-	startPoint.hide();
-	endPoint.hide();
-	tLine.hide();
+function selectElement(){
+	if($(this).data("index") == ""){
+		showCursor = false;
+		return;
+	}
 
-	layer.add(tLine.clone().show());
+	cursor=elements[$(this).data("index")]; 
+	showCursor =true;
+}
+
+function loadImage(i){
+	if(i>=imgNames.length) return;
+	var tImg; // temporary image variable
+	tImg = new Image();
+	console.log(imgNames[i]);
+	tImg.onload=function(){
+		elements[imgNames[i]]=new Kinetic.Image({
+			image: tImg,
+			name:'cursor'
+		}).hide();
+
+		layer.add(elements[imgNames[i]]);
+
+		loadImage(++i);
+		console.log(elements);
+	}
+	tImg.src="img/"+imgNames[i]+".png";
+}
+
+function moveActions(e){
+	if(!showCursor) return;
+	
+	cursor.setPosition({x: e.offsetX-cursor.getWidth()/2, y: e.offsetY-cursor.getHeight()/2});
 	layer.draw();
 }
 
-function drawing(e){ 
-	if(isDrawing) return;
+function showElement(e){
+	if(!showCursor) return;
 
-	endPoint.setPosition(e.offsetX, e.offsetY);
-	tLine.setPoints([startPoint.getX(), startPoint.getY(), endPoint.getX(), endPoint.getY()]);
-
+	cursor.show();
 	layer.draw();
 }
 
-function cancelWiring(redraw){
-	isDrawing = false;
-	if (redraw) layer.draw();
+function hideElement(){
+	if(!showCursor) return;
+	cursor.hide();
+	layer.draw();
 }

@@ -7,3 +7,8 @@
 #drawing_area canvas{
 	border: 1px solid black;
 }
+
+div.toolbox img{
+	margin-left: auto;
+	margin-right: auto;
+}
