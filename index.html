@@ -18,6 +18,7 @@
         <link rel="stylesheet" href="css/bootstrap.css">
         <script src="js/vendor/modernizr-2.6.2.min.js"></script>
         <script src="js/vendor/kinetic-v4.5.5.min.js"></script>
+        <script src="js/vendor/shortcut.js"></script>
     </head>
     <body>
         <!--[if lt IE 7]>
@@ -29,25 +30,26 @@
             <div class="container">
                 <div class="row">
                     <div class="toolbox span2">
-                        <ul class="nav nav-tabs nav-stacked well">
-                            <li class="nav-header">Elementos</li>
+                        <div class="well sidebar-nav">
+                            <ul class="nav nav-list">
+                                <li class="nav-header">Elementos</li>
 
-                            <li><a href="#" class="text-center" data-index="R"><img src="img/R.png" class="img-rounded"></a></li>
-                            <li><a href="#" class="text-center" data-index="VS"><img src="img/VS.png" class="img-rounded"></a></li>
-                            <li><a href="#" class="text-center" data-index="CS"><img src="img/CS.png" class="img-rounded"></a></li>
-                            <li><a href="#" class="text-center" data-index="VSC"><img src="img/VSC.png" class="img-rounded"></a></li>
-                            <li><a href="#" class="text-center" data-index="CSC"><img src="img/CSC.png" class="img-rounded"></a></li>
+                                <li class="element"><a href="#" class="text-center" data-index="R"><img src="img/R.png" class="img-rounded"></a></li>
+                                <li class="element"><a href="#" class="text-center" data-index="VS"><img src="img/VS.png" class="img-rounded"></a></li>
+                                <li class="element"><a href="#" class="text-center" data-index="CS"><img src="img/CS.png" class="img-rounded"></a></li>
+                                <li class="element"><a href="#" class="text-center" data-index="VSC"><img src="img/VSC.png" class="img-rounded"></a></li>
+                                <li class="element"><a href="#" class="text-center" data-index="CSC"><img src="img/CSC.png" class="img-rounded"></a></li>
 
-                            <li class="nav-header">Herramientas</li>
-                            <li><a href="#" class="text-center" data-index=""><img src="img/pointer.png" class="img-rounded"></a></li>
-                            <li><a href="#" class="text-center" data-index=""><img src="img/connector.png" class="img-rounded"></a></li>                            
-                        </ul>
+                                <li class="nav-header">Herramientas</li>
+                                <li class="tool active"><a id="tool_pointer" href="#" class="text-center" data-index=""><img src="img/pointer.png" class="img-rounded"></a></li>
+                                <li class="tool"><a id="tool_wire" href="#" class="text-center" data-index=""><img src="img/connector.png" class="img-rounded"></a></li>                            
+                            </ul>
+                        </div>
                     </div>
                     <div class="span10">
                         <div id="drawing_area"></div>
                     </div>
                 </div>
-                <div></div>
             </div>
         </p>
         <script src="js/vendor/jquery-1.9.1.min.js"></script>
