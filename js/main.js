@@ -122,11 +122,12 @@ function selectElement(){
 	showCursor =true;
 }
 
-function moveActions(e){
+function moveActions(){
 	if(!showCursor) return;
 
-	//cursor.setPosition({x: e.offsetX-cursor.getWidth()/2, y: e.offsetY-cursor.getHeight()/2});
-	cursor.setPosition({x: e.offsetX, y: e.offsetY});
+	var event = stage.getPointerPosition();
+	cursor.setPosition({x:event.x, y:event.y});
+	cursor.draw();
 	elementsLayer.draw();
 }
 
@@ -179,6 +180,7 @@ function loadCursors(){
 		tkGroup.add(tkPath);
 		tkGroup.add(tkCirclePositive);
 		tkGroup.add(tkCircleNegative);
+
 		// rect add to facilitate click selection
 		tkGroup.add(new Kinetic.Rect({ x:0, y:0, height:grpHeight, width:grpWidth}))
 		tkGroup.setOffset(grpWidth/2, grpHeight/2)
@@ -188,55 +190,6 @@ function loadCursors(){
 
 		elementsLayer.add(elements[letter]);
 	}
-}
-
-function loadImage(i){
-	if(i>=imgNames.length) return;
-	var tImg; // temporary image variable
-	tImg = new Image();
-	tImg.onload=function(){
-		// temp kinetic objects
-		var tkGroup;
-		var tkImg; 
-		var tkCirclePositive, tkCircleNegative;
-
-
-		tkImg=new Kinetic.Image({
-			image: tImg,
-			name:'cursor'
-		});
-
-		tkCirclePositive = new Kinetic.Circle({
-			radius:3,
-			strokeWidth:1,
-			fill:'gray', 
-			stroke:'black',
-			x: (tImg.width / 2),
-			y: 0,
-			name: "positiveNode"
-		}).hide();
-
-		tkCircleNegative = tkCirclePositive.clone();
-		tkCircleNegative.setName('negativeNode');
-		tkCircleNegative.setY(tImg.height);
-
-		tkGroup = new Kinetic.Group();
-
-		tkGroup.add(tkImg);
-		tkGroup.add(tkCirclePositive);
-		tkGroup.add(tkCircleNegative);
-		tkGroup.hide();
-
-		tkGroup.setWidth(tImg.width);
-		tkGroup.setHeight(tImg.height);
-
-		elements[imgNames[i]]=tkGroup;
-
-		elementsLayer.add(elements[imgNames[i]]);
-
-		loadImage(++i);
-	}
-	tImg.src="img/"+imgNames[i]+".png";
 }
 
 function showConnectors(){
