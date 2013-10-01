@@ -85,6 +85,7 @@ function findPath(from, to){
 		parent = tempNode;
 	}
 
+/*
 	for(index in openList)
 		connectorsLayer.add(new Kinetic.Circle({
 			x: openList[index].x,
@@ -103,7 +104,7 @@ function findPath(from, to){
 			stroke: 'black',
 			strokeWidth: 1,
 			radius: 2
-		}));
+		}));*/
 
 	connectorsLayer.draw();
 
