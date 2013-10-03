@@ -31,71 +31,13 @@ var path={};
 
 var md_handlers={
 	//placeElemnt
-	0: function(){
-		var xPos = Math.round(cursor.getX()/10)*10;
-		var yPos = Math.round(cursor.getY()/10)*10;
-		cursor.setPosition(xPos,yPos);
-
-		var newElement=cursor.clone();
-		newElement.setName('placed')
-		elementsLayer.add(newElement);
-
-		cursor.hide();
-		elementsLayer.draw();
-		showCursor = false;
-		md_action = null;
-	},
-	// select start point for path
-	1: function(){
-		path ={start:getPosition()}
-		elementsLayer.add(new Kinetic.Circle({
-									radius:2,
-									strokeWidth:1,
-									fill:'blue', 
-									stroke:'black',
-									x: path.start.x-1,
-									y: path.start.y-1
-								})
-		)
-		elementsLayer.draw();
-		md_action=2;
-		connectorsLayer.removeChildren();
-		connectorsLayer.draw();	
-	},
-	// select endpoint and find path
-	2: function(){
-		var pathString;
-		path.end = getPosition();
-		elementsLayer.add(new Kinetic.Circle({
-									radius:2,
-									strokeWidth:1,
-									fill:'blue', 
-									stroke:'black',
-									x: path.end.x-1,
-									y: path.end.y-1
-								})
-		)
-		elementsLayer.draw();
-		
-		pathString = findPath(path.start, path.end);
-		if(pathString.length > 0){
-			elementsLayer.add(new Kinetic.Path({
-	        x: 0,
-	        y: 0,
-	        data: pathString,
-	        strokeWidth: 2,
-	        stroke: 'black'
-	      }));
-
-			elementsLayer.draw();
-		}
-		md_action=1;
-	}
+	0: placeElement
 }
 
 function mousedown_h(){
+	console.log("llamada a mousedown " + md_action);
 	if(md_action==null) return;
-	
+
 	md_handlers[md_action]();
 }
 
@@ -103,11 +45,10 @@ function selectElement(){
 	shortcut.remove('r');
 	shortcut.add('r',function(){
 		cursor.rotateDeg(90);
-		console.log(cursor.getRotationDeg());
 		cursor.getParent().draw();
 	});
 
-	$("#drawing_area").css("cursor","move");
+	$("#drawing_area").css("cursor","default	");
 
 	cursor=elements[$(this).data("index")]; 
 	cursor.setRotationDeg(0);
@@ -117,11 +58,12 @@ function selectElement(){
 }
 
 function moveActions(){
-	if(!showCursor) return;
-	var event = stage.getPointerPosition();
-	cursor.setPosition({x:event.x, y:event.y});
-	cursor.draw();
-	elementsLayer.draw();
+	if(showCursor){
+		var event = stage.getPointerPosition();
+		cursor.setPosition({x:event.x, y:event.y});
+		cursor.draw();
+		elementsLayer.draw();
+	}
 }
 
 function showElement(){
@@ -141,7 +83,7 @@ function hideElement(){
 function loadCursors(){
 	var tkGroup;
 	var tkPath; 
-	var tkCirclePositive, tkCircleNegative;
+	var tkCirclePositive, tkCircleNegative, tkConnectorPositive, tkConnectorNegative;
 	var grpWidth, grpHeight = 60;
 
 	for(letter in symbols){
@@ -171,12 +113,33 @@ function loadCursors(){
 		tkCircleNegative.setName('negativeNode');
 		tkCircleNegative.setY(grpHeight);
 
+		tkConnectorPositive = new Kinetic.Rect({
+			x: (letter=="R")?0:10,
+			y: 0,
+			width: 20,
+			height: 10
+		});
+
+		tkConnectorNegative = tkConnectorPositive.clone();
+		tkConnectorNegative.setY(grpHeight - 10);
+
+		tkConnectorPositive.setAttr("point", "positiveNode");
+		tkConnectorPositive.setName('positiveConnector');
+		tkConnectorNegative.setAttr("point", "negativeNode");
+		tkConnectorNegative.setName('negativeConnector');
+
+		tkConnectorPositive.on('click', connectorsClick);
+		tkConnectorNegative.on('click', connectorsClick);
+
+
+		// rect add to facilitate click selection
+		tkGroup.add(new Kinetic.Rect({ x:0, y:0, height:grpHeight, width:grpWidth}));
 		tkGroup.add(tkPath);
 		tkGroup.add(tkCirclePositive);
 		tkGroup.add(tkCircleNegative);
+		tkGroup.add(tkConnectorPositive);
+		tkGroup.add(tkConnectorNegative);
 
-		// rect add to facilitate click selection
-		tkGroup.add(new Kinetic.Rect({ x:0, y:0, height:grpHeight, width:grpWidth}))
 		tkGroup.setOffset(grpWidth/2, grpHeight/2)
 		tkGroup.hide();
 
@@ -186,28 +149,128 @@ function loadCursors(){
 	}
 }
 
+function connectorsClick()
+{
+	var connectorType = this.getAttr('point');
+	this.getParent().getChildren().each(function(shape)
+		{
+			if(shape.getName() == connectorType)
+			{
+				shape.setAttr('fill', 'blue');
+				if(path.start != undefined) 
+					path.end = shape.getAbsolutePosition();
+				else
+					path.start = shape.getAbsolutePosition();
+
+				console.log(path);
+			}
+		});
+
+	connectorsLayer.removeChildren();
+	connectorsLayer.draw();
+	elementsLayer.draw();
+
+	if(path.start == path.end){
+		console.log("son iguales");
+		delete path.end;
+		return;
+	}
+
+	if(path.start != undefined && path.end != undefined)
+	{
+		var pathString;
+		
+		elementsLayer.draw();
+			
+		pathString = findPath(getPosition(path.start), getPosition(path.end));
+		
+		if(pathString.length > 0){
+			elementsLayer.add(new Kinetic.Path({
+			    	x: 0,
+		    	    y: 0,
+			        data: pathString,
+			        strokeWidth: 2,
+		        	stroke: 'black'
+		    	})
+		    );
+
+			elementsLayer.draw();
+		}
+
+		delete path.start;
+		delete path.end;
+	}
+}
+
 function showConnectors(){
 	stage.get('.placed').each(function(groupNode){
-		groupNode.get('.positiveNode, .negativeNode').show();
+		groupNode.get('.positiveNode, .negativeNode, .positiveConnector, .negativeConnector').show();
 	})
 
 	$("#drawing_area").css("cursor","crosshair");
 	elementsLayer.draw();
-
-	md_action=1;
 }
 
 function hideConnectors(){
-	stage.get('.positiveNode, .negativeNode').hide();
-	f_connectors = false;
-	elementsLayer.draw();
+	stage.get('.positiveNode, .negativeNode, .positiveConnector, .negativeConnector').hide();
+
+	connectorsLayer.removeChildren();
+	connectorsLayer.draw();
 }
 
-function getPosition(){
-	var position = stage.getPointerPosition();
+function getPosition(position){
+	var position = position || stage.getPointerPosition();
 	var xPos = Math.round(position.x/10)*10;
 	var yPos = Math.round(position.y/10)*10;
 	return {x: xPos, y:yPos, hash: ("00" + xPos).slice(-3) + ("00"+yPos).slice(-3)};
+}
+
+function placeElement(){
+	//get position
+	var position = getPosition();
+	if(getNode({position: position}).state != 0)
+		return;
+	//place and create the new element
+	cursor.setPosition(position.x,position.y);
+	var newElement=cursor.clone();
+	newElement.setName('placed')
+	elementsLayer.add(newElement);
+
+	if(cursor.getRotationDeg() % 180 == 0)
+	{
+		for( var i = position.x - 20; i <= position.x - 20+ (cursor.getWidth()) ; i += 10)
+		{
+			for( var j = position.y - 30; j <= position.y - 30 + (cursor.getHeight()); j += 10)
+			{
+				getNode({
+					position: getPosition( { x : i, y : j } ) 
+				}).state = 2;
+				//connectorsLayer.add(new Kinetic.Circle({radius:3, strokeWidth:1, fill:'gray', stroke:'black', x: i,	y: j }));
+			}
+		}
+	}
+	else
+	{
+		for( var i = position.x - 30; i <= position.x - 30 + (cursor.getHeight()) ; i += 10)
+		{
+			for( var j = position.y - 20; j <= position.y - 20 + (cursor.getWidth()); j += 10)
+			{
+				getNode({
+					position: getPosition( { x : i, y : j } ) 
+				}).state = 2;
+				//connectorsLayer.add(new Kinetic.Circle({radius:3, strokeWidth:1, fill:'gray', stroke:'black', x: i,	y: j }));
+			}
+				
+		}
+			
+	}
+
+	//hide and redraw
+	cursor.hide();
+	elementsLayer.draw();
+	connectorsLayer.draw();
+	showCursor = false;
+	md_action = null;
 }
 
 $(function(){
@@ -268,13 +331,3 @@ $(function(){
 		$(this).addClass('active');
 	})
 });
-
-
-/*
-		change path color
-		function(){
-			this.get('Path')[0].setStroke('blue');
-			this.draw();
-			this.getParent().draw();
-		}
-*/
