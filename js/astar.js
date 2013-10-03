@@ -74,6 +74,8 @@ function findPath(from, to){
 		//if none is found return empty string
 		if(tempNode == undefined)
 		{
+			
+			/*
 			for(index in openList)
 				connectorsLayer.add(new Kinetic.Circle({
 					x: openList[index].x,
@@ -92,7 +94,8 @@ function findPath(from, to){
 					stroke: 'black',
 					strokeWidth: 1,
 					radius: 2
-				}));
+				}));*/
+
 			connectorsLayer.draw();
 			return "";
 		}
@@ -106,7 +109,7 @@ function findPath(from, to){
 	}
 
 	
-	for(index in openList)
+	/*for(index in openList)
 		connectorsLayer.add(new Kinetic.Circle({
 			x: openList[index].x,
 			y: openList[index].y,
@@ -124,7 +127,7 @@ function findPath(from, to){
 			stroke: 'black',
 			strokeWidth: 1,
 			radius: 2
-		}));
+		}));*/
 
 	connectorsLayer.draw();
 

@@ -213,7 +213,7 @@ function showConnectors(){
 
 function hideConnectors(){
 	stage.get('.positiveNode, .negativeNode, .positiveConnector, .negativeConnector').hide();
-
+	elementsLayer.draw();
 	connectorsLayer.removeChildren();
 	connectorsLayer.draw();
 }
