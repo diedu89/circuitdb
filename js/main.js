@@ -304,7 +304,12 @@ function connectorsClick(){
 		}
 		
 		//if both dont have circuitNode assigned, create a new one
-		if(circuitNode == null) circuitNode = { nodeName:'N' + (++counters['N']), connectedElements: {}, lines:{}, gridNodes:{}};
+		if(circuitNode == null) circuitNode = { 
+			nodeName:'N' + (++counters['N']), 
+			connectedElements: {}, 
+			lines:{}, 
+			gridNodes:{}
+		};
 
 		elementId = path.start.parent.getAttr('elementId');
 
@@ -538,7 +543,18 @@ function nodeAnalysis(groundNodeName){
 	var ECs = {}; //Ecuations
 	var X = {}; 
 	
-	//order the nodes in order to process the ones adjacent to the ground node
+	//clear all node analysis variables
+	for(nodeName in circuitNodes)
+	{
+		delete circuitNodes[nodeName].SP;
+		delete circuitNodes[nodeName].voltage;
+	}
+
+	stage.get('.placed').each(function(group){
+		delete group.attrs.SP;
+	})
+
+	//sort the nodes in order to process the ones adjacent to the ground node
 	for(var elementId in groundNode.connectedElements)
 	{
 		currentConnector = groundNode.connectedElements[elementId];
@@ -677,19 +693,31 @@ function nodeAnalysis(groundNodeName){
 		}
 	}
 
-	for(nodeName in circuitNodes)
-	{
-		delete circuitNodes[nodeName].SP;
-		delete circuitNodes[nodeName].voltage;
-	}
-
-	stage.get('.placed').each(function(group){
-		delete group.attrs.SP;
-	})
 	var solutionMatrix = numeric.dot(numeric.inv(matrix), xMatrix);
 	
+	$("#analysis_results ul.nav-list li.node_result").remove();
+	console.log($("#analysis_results ul.nav-list li:first"));
+	for(i in cols)
+	{
+		console.log("<li class='node_result' data-node_name='"+ i +"'></li>");
+		$("#analysis_results li.nav-header").after("<li class='node_result' data-node_name='"+ i +"'>" + i + "</li>");
+	}
+
+	console.log($("#analysis_results ul.nav-list li.node_result").length );
+
+	$("#analysis_results ul.nav-list li.node_result").click(function(){
+		connectorsLayer.get("Path").each(function(path){
+			if(path.attrs.nodeName == $(this).data("node_name"))
+				path.setAttr('stroke', 'blue');
+			else
+				path.setAttr('stroke', 'black');
+		});
+	});
+
 	console.log(matrix);
 	console.log(xMatrix);
+	console.log(solutionMatrix);
+	console.log(cols);
 }
 
 function showGroundMessage(){
@@ -702,15 +730,16 @@ function showGroundMessage(){
 	{
 		nodeAnalysis(this.getAttr("nodeName"));
 	});
+
 	connectorsLayer.get("Path").each(function(path){
 		path.setAttr('strokeWidth', '3');
 	});
 
 	$("#drawing_area").css("cursor","default");
+	
 	$("#design_options").slideUp(function(){
 		$("#analysis_results").slideDown();
 	});
-
 }
 
 function showModalMessage(class_name, message){
