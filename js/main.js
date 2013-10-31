@@ -624,7 +624,7 @@ function nodeAnalysis(groundNodeName){
 					EC_name = currentNode.SP || currentNode.nodeName;
 
 					X[EC_name] = X[EC_name] || 0;
-					X[EC_name] = X[EC_name] + -1 * currentConnector.getAttr('multiplier') * parseFloat(currentConnector.parent.getAttr('value'));
+					X[EC_name] = X[EC_name] + currentConnector.getAttr('multiplier') * parseFloat(currentConnector.parent.getAttr('value'));
 					break;
 				case "R":
 					EC_name = currentNode.SP || currentNode.nodeName;
@@ -686,10 +686,10 @@ function nodeAnalysis(groundNodeName){
 	stage.get('.placed').each(function(group){
 		delete group.attrs.SP;
 	})
+	var solutionMatrix = numeric.dot(numeric.inv(matrix), xMatrix);
 	
 	console.log(matrix);
 	console.log(xMatrix);
-	console.log(numeric.dot(numeric.inv(matrix), xMatrix));
 }
 
 function showGroundMessage(){
@@ -697,12 +697,20 @@ function showGroundMessage(){
 		"", 
 		"<strong>Analisis de nodos: </strong> A continuacion seleccione el nodo tierra para iniciar el analisis de nodos."
 	);
+	
 	connectorsLayer.get("Path").on('click', function()
 	{
 		nodeAnalysis(this.getAttr("nodeName"));
 	});
-	console.log(connectorsLayer.get("Path"));
+	connectorsLayer.get("Path").each(function(path){
+		path.setAttr('strokeWidth', '3');
+	});
+
 	$("#drawing_area").css("cursor","default");
+	$("#design_options").slideUp(function(){
+		$("#analysis_results").slideDown();
+	});
+
 }
 
 function showModalMessage(class_name, message){
@@ -816,5 +824,5 @@ $(function(){
 	  $('#modal_layer, #modal_message').hide();
 	});
 
-	$("#modal_message").hide();
+	$("#modal_message, #analysis_results").hide();
 });
