@@ -1,7 +1,18 @@
-#drawing_area{
+body{
+	padding-top: 60px;
+}
+
+#wrapper_drawing{
 	height:500px;
 	width:100%;
+	position: relative;
+}
+
+#drawing_area{
+	height: 100%;
+	width: 100%;
 	overflow: auto;
+	position: absolute;
 }
 
 #drawing_area canvas{
@@ -11,4 +22,27 @@
 div.toolbox img{
 	margin-left: auto;
 	margin-right: auto;
+}
+
+#modal_layer{
+	background-color: rgba(0,0,0,.3);
+	opacity: .3;
+	position: absolute;
+	height:100%;
+	width: 100%;
+}
+
+#modal_input{
+	width: 400px;
+	background-color: white;
+	border: 1px black solid;
+	opacity: 2;
+	position: relative;
+}
+
+#modal_message{
+	position: relative;
+	width: 60%;
+	left: 5%;
+	top: 5%;
 }

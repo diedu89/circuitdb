@@ -2,7 +2,7 @@
 // this avoid to use unnecesary node of the graphic grid
 var grid = {};
 
-function findPath(from, to){
+function findPath(from, to, circuitNode){
 	var openList = {};
 	var closeList = {};
 	var parent={};
@@ -17,10 +17,6 @@ function findPath(from, to){
 	parent.f = parent.g + parent.h;
 	parent.parent = null;
 
-	console.log(parent);
-	console.log(endNode);
-
-	grid[parent.hash].state = 1;
 	closeList[parent.hash] = parent;
 
 	var i=0,j;
@@ -30,7 +26,7 @@ function findPath(from, to){
 	// do while the endpoint is not reached
 	main_loop:
 	while(parent.hash != to.hash)
-	{
+	{	
 		//visit neighbors
 		for(index in parent.neighbors)
 		{
@@ -38,7 +34,7 @@ function findPath(from, to){
 			tempNode = getNode({position: parent.neighbors[index], endPoint: endNode});
 			
 			//if it is already in the closeList or state is not possible to add continue with the next neighbor
-			if(!!closeList[tempNode.hash] || (tempNode.state != 0 && tempNode.hash != endNode.hash)) continue;
+			if(!!closeList[tempNode.hash] || ( !(tempNode.nodeName == circuitNode || tempNode.nodeName == "") && tempNode.hash != endNode.hash)) continue;
 
 			// if it isn't in openList add it and set the parent to current procesed node
 			if(!openList[tempNode.hash]){
@@ -74,9 +70,7 @@ function findPath(from, to){
 		//if none is found return empty string
 		if(tempNode == undefined)
 		{
-			
-			/*
-			for(index in openList)
+			/*for(index in openList)
 				connectorsLayer.add(new Kinetic.Circle({
 					x: openList[index].x,
 					y: openList[index].y,
@@ -94,9 +88,9 @@ function findPath(from, to){
 					stroke: 'black',
 					strokeWidth: 1,
 					radius: 2
-				}));*/
+				}));
 
-			connectorsLayer.draw();
+			connectorsLayer.draw();*/
 			return "";
 		}
 
@@ -127,19 +121,43 @@ function findPath(from, to){
 			stroke: 'black',
 			strokeWidth: 1,
 			radius: 2
-		}));*/
-
-	connectorsLayer.draw();
-
+		}));
+	*/
 	i=0;
 	path = "M" + parent.x + ","+ parent.y + "L" + parent.x + ", "+ parent.y +" ";
+	var initialized = false;
 	do{
-		i++
-		grid[parent.hash].state=1;
+		i++;
+		//grid[parent.hash].state=1;
+		grid[parent.hash].nodeName = circuitNode;
+		circuitNodes[circuitNode].gridNodes[parent.hash] = parent;
 		parent = parent.parent;
 		path = path +"L"+ parent.x + "," + parent.y + " ";
 	}while(parent.parent != null && i<1000)
 	
+	/*for(index in grid){
+		if(grid[index].nodeName != "")
+			connectorsLayer.add(new Kinetic.Circle({
+				x: grid[index].x - 1,
+				y: grid[index].y - 1,
+				fill: 'red',
+				stroke: 'black',
+				strokeWidth: 1,
+				radius: 2
+			}));
+		else
+			connectorsLayer.add(new Kinetic.Circle({
+				x: grid[index].x - 1,
+				y: grid[index].y - 1,
+				fill: 'blue',
+				stroke: 'black',
+				strokeWidth: 1,
+				radius: 2
+			}));
+	}*/
+
+	connectorsLayer.draw();
+
 	//path = path.replace(/^\s+|\s+$/g, '');
 	//connectorsLayer.draw();
 	return path;
@@ -152,7 +170,11 @@ function getNode(data){
 	
 
 	if(grid[hash] != undefined)
-		return grid[hash];
+	{
+		grid[hash].h = ((!!data.endPoint)?(Math.abs(pos_x - data.endPoint.x) + Math.abs(pos_y - data.endPoint.y)):0);
+		return grid[hash];		
+	}
+
 
 	var new_node = {
 		hash: hash,
@@ -163,9 +185,9 @@ function getNode(data){
 		h:((!!data.endPoint)?(Math.abs(pos_x - data.endPoint.x) + Math.abs(pos_y - data.endPoint.y)):0),
 		parent: null,
 		neighbors: {},
+		nodeName: "",
 		state: 0
 	}
-
 	if(new_node.x - 10 > 0)
 		new_node.neighbors["left"] = ("00" + (new_node.x - 10)).slice(-3) + hash.slice(-3);
 

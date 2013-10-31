@@ -2,7 +2,8 @@
 <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
 <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
 <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<!--[if gt IE 8]><!--> 
+<html class="no-js"> <!--<![endif]-->
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
@@ -17,9 +18,18 @@
         <link rel="stylesheet" href="css/app.css">
         <link rel="stylesheet" href="css/bootstrap.css">
         <script src="js/vendor/modernizr-2.6.2.min.js"></script>
+        
+        <script src="js/vendor/jquery-1.9.1.min.js"></script>
+        <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.9.1.min.js"><\/script>')</script>
+        <script type="text/javascript" src="js/vendor/jquery-ui-1.10.3.custom.min.js"></script>
+        <script type="text/javascript" src="js/vendor/jquery.validate.min.js"></script>
         <script src="js/vendor/kinetic-v4.5.5.min.js"></script>
         <script src="js/vendor/shortcut.js"></script>
-        <script type="text/javascript" src="js/astar.js"></script>
+        <script src="js/vendor/bootstrap.js"></script>
+        <script src="js/vendor/numeric.min.js"></script>
+        <script src="js/astar.js"></script>
+        <script src="js/plugins.js"></script>
+        <script src="js/main.js"></script>
     </head>
     <body>
         <!--[if lt IE 7]>
@@ -28,6 +38,19 @@
 
         <!-- Add your site or application content here -->
         <p>
+            <div class="navbar navbar-inverse navbar-fixed-top">
+              <div class="navbar-inner">
+                <div class="container">
+                  <button type="button" class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                  </button>
+                  <a class="brand" href="#">Circuits UDB</a>
+                </div>
+              </div>
+            </div>
+
             <div class="container">
                 <div class="row">
                     <div class="toolbox span2">
@@ -43,20 +66,49 @@
 
                                 <li class="nav-header">Herramientas</li>
                                 <li class="tool active"><a id="tool_pointer" href="#" class="text-center" data-index=""><img src="img/pointer.png" class="img-rounded"></a></li>
-                                <li class="tool"><a id="tool_wire" href="#" class="text-center" data-index=""><img src="img/connector.png" class="img-rounded"></a></li>                            
+                                <li class="tool"><a id="tool_wire" href="#" class="text-center" data-index=""><img src="img/connector.png" class="img-rounded"></a></li> 
+
+                                <li class="nav-header">Analisis</li>
+                                <li class="tool"><a id="node_analysis" href="#" class="text-center" data-index=""><img src="img/pointer.png" class="img-rounded"></a></li>                            
                             </ul>
                         </div>
                     </div>
                     <div class="span10">
-                        <div id="drawing_area"></div>
+                        <div id="wrapper_drawing">
+                            <div id="drawing_area">
+                            </div>
+                            <div id="modal_layer" class="hide">
+                            </div>
+                            <div id="modal_input" class="modal draggable hide">
+                                <div class="modal-header">
+                                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                                    <h4></h4>
+                                </div>   
+                                <div class="modal-body">
+                                    <form>
+                                    <fieldset>
+                                        <label></label>
+                                        <input name="decimal_input" id="decimal_input" type="text" placeholder="">
+                                        <span class="help-block"></span>
+                                    </fieldset>
+                                    </form>
+                                </div>                             
+                                <div class="modal-footer">
+                                    <a href="#" class="btn cancel" >Cancelar</a>
+                                    <a href="#" class="btn btn-primary ok">Aceptar</a>
+                                </div>
+                            </div>
+                            <div id="modal_message">
+                                <button type="button" class="close">&times;</button>
+                                <div class="caption">
+                                    
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </p>
-        <script src="js/vendor/jquery-1.9.1.min.js"></script>
-        <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.9.1.min.js"><\/script>')</script>
-        <script src="js/plugins.js"></script>
-        <script src="js/main.js"></script>
 
         <!-- commented by the moment Google Analytics: change UA-XXXXX-X to be your site's ID. -->
         <!--script>
