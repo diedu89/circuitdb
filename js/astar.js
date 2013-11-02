@@ -71,7 +71,7 @@ function findPath(from, to, circuitNode){
 		if(tempNode == undefined)
 		{
 			/*for(index in openList)
-				connectorsLayer.add(new Kinetic.Circle({
+				testLayer.add(new Kinetic.Circle({
 					x: openList[index].x,
 					y: openList[index].y,
 					fill: 'green',
@@ -81,7 +81,7 @@ function findPath(from, to, circuitNode){
 				}));
 
 			for(index in closeList)
-				connectorsLayer.add(new Kinetic.Circle({
+				testLayer.add(new Kinetic.Circle({
 					x: closeList[index].x - 1,
 					y: closeList[index].y - 1,
 					fill: '#5395ee',
@@ -90,7 +90,7 @@ function findPath(from, to, circuitNode){
 					radius: 2
 				}));
 
-			connectorsLayer.draw();*/
+			testLayer.draw();*/
 			return "";
 		}
 
@@ -104,7 +104,7 @@ function findPath(from, to, circuitNode){
 
 	
 	/*for(index in openList)
-		connectorsLayer.add(new Kinetic.Circle({
+		testLayer.add(new Kinetic.Circle({
 			x: openList[index].x,
 			y: openList[index].y,
 			fill: 'green',
@@ -114,7 +114,7 @@ function findPath(from, to, circuitNode){
 		}));
 
 	for(index in closeList)
-		connectorsLayer.add(new Kinetic.Circle({
+		testLayer.add(new Kinetic.Circle({
 			x: closeList[index].x - 1,
 			y: closeList[index].y - 1,
 			fill: '#5395ee',
@@ -123,21 +123,17 @@ function findPath(from, to, circuitNode){
 			radius: 2
 		}));
 	*/
-	i=0;
-	path = "M" + parent.x + ","+ parent.y + "L" + parent.x + ", "+ parent.y +" ";
-	var initialized = false;
+	var i=0;
+	path = [];
 	do{
-		i++;
-		//grid[parent.hash].state=1;
-		grid[parent.hash].nodeName = circuitNode;
-		circuitNodes[circuitNode].gridNodes[parent.hash] = parent;
+		path[i] = parent.hash;
 		parent = parent.parent;
-		path = path +"L"+ parent.x + "," + parent.y + " ";
-	}while(parent.parent != null && i<1000)
+		i++;
+	}while(parent != null && i<1000)
 	
 	/*for(index in grid){
 		if(grid[index].nodeName != "")
-			connectorsLayer.add(new Kinetic.Circle({
+			testLayer.add(new Kinetic.Circle({
 				x: grid[index].x - 1,
 				y: grid[index].y - 1,
 				fill: 'red',
@@ -146,7 +142,7 @@ function findPath(from, to, circuitNode){
 				radius: 2
 			}));
 		else
-			connectorsLayer.add(new Kinetic.Circle({
+			testLayer.add(new Kinetic.Circle({
 				x: grid[index].x - 1,
 				y: grid[index].y - 1,
 				fill: 'blue',
@@ -156,10 +152,10 @@ function findPath(from, to, circuitNode){
 			}));
 	}*/
 
-	connectorsLayer.draw();
+	testLayer.draw();
 
 	//path = path.replace(/^\s+|\s+$/g, '');
-	//connectorsLayer.draw();
+	//testLayer.draw();
 	return path;
 }
 
@@ -186,7 +182,8 @@ function getNode(data){
 		parent: null,
 		neighbors: {},
 		nodeName: "",
-		state: 0
+		state: 0,
+		lines: []
 	}
 	if(new_node.x - 10 > 0)
 		new_node.neighbors["left"] = ("00" + (new_node.x - 10)).slice(-3) + hash.slice(-3);

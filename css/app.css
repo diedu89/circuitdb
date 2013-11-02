@@ -39,10 +39,3 @@ div.toolbox img{
 	opacity: 2;
 	position: relative;
 }
-
-#modal_message{
-	position: relative;
-	width: 60%;
-	left: 5%;
-	top: 5%;
-}

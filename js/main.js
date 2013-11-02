@@ -36,12 +36,23 @@ var counters = {
 	"CS":0,
 	"VSC":0,
 	"CSC":0,
-	"N":0 
+	"N":0,
+	"L":0
 };
+
+//actions
+var states = {
+	nothing:0,
+	placing:1,
+	wiring:2,
+	node_analysis:3
+};
+var state = states.nothing;
 
 var cursor;
 var showCursor=false;
 var md_action=null;
+var selectedObject=null;
 
 var rotation=0;
 
@@ -56,12 +67,11 @@ var validator;
 
 function mousedown_h(){
 //	console.log("llamada a mousedown " + md_action);
-	if(md_action==null) return;
-
-	md_handlers[md_action]();
+	if(state == states.placing)
+		placeElement();
 }
 
-function selectElement(){
+function selectElementType(){
 	shortcut.remove('r');
 	shortcut.add('r',function(){
 		cursor.rotateDeg(90);
@@ -73,12 +83,11 @@ function selectElement(){
 	cursor=elements[$(this).data("index")]; 
 	cursor.setRotationDeg(0);
 	
-	showCursor = true;
-	md_action = 0;
+	state = states.placing;
 }
 
 function moveActions(){
-	if(showCursor){
+	if(state == states.placing){
 		var event = stage.getPointerPosition();
 		cursor.setPosition({x:event.x, y:event.y});
 		cursor.draw();
@@ -87,14 +96,14 @@ function moveActions(){
 }
 
 function showElement(){
-	if(!showCursor) return;
+	if(state != states.placing) return;
 
 	cursor.show();
 	elementsLayer.draw();
 }
 
 function hideElement(){
-	if(!showCursor) return;
+	if(state != states.placing) return;
 
 	cursor.hide();
 	elementsLayer.draw();
@@ -131,7 +140,6 @@ function loadCursors(){
 		}).hide();
 		tkGroup.tkCirclePositive.setAttr('multiplier', 1);
 
-
 		tkGroup.tkCircleNegative = tkGroup.tkCirclePositive.clone();
 		tkGroup.tkCircleNegative.setName('negativeNode');
 		tkGroup.tkCircleNegative.setY(grpHeight);
@@ -163,10 +171,9 @@ function loadCursors(){
 			x:0, 
 			y:10, 
 			height:grpHeight - 20, 
-			width:grpWidth
+			width:grpWidth,
+			name: 'clickArea'
 		});
-
-		tkGroup.tkClickArea.on('click',function(){console.log($(this))});
 		
 		tkGroup.tkText = new Kinetic.Text({
 			x:4 + grpWidth / 2,
@@ -188,6 +195,7 @@ function loadCursors(){
 		tkGroup.add(tkGroup.tkConnectorNegative);
 
 		tkGroup.tkText.moveToTop();
+		tkGroup.tkClickArea.moveToTop();
 		tkGroup.tkConnectorNegative.moveToTop();
 		tkGroup.tkConnectorPositive.moveToTop();
 		tkGroup.setOffset(grpWidth/2, grpHeight/2)
@@ -202,8 +210,11 @@ function loadCursors(){
 
 //wire
 function connectorsClick(){
+	if(state != states.wiring) return;	
+
 	var connectorType = this.getAttr('point');
 	var connector = this.parent.get('.' + connectorType)[0];
+
 	console.log("click en el conector");
 	stage.get('.positiveNode, .negativeNode').each(function(circle){
 		circle.setAttr('fill', 'gray');
@@ -239,6 +250,7 @@ function connectorsClick(){
 		}
 
 		var pathString;
+		var pathNodes;
 		var initialNode, finalNode;
 		var circuitNode = null;
 		var elementId;
@@ -256,7 +268,7 @@ function connectorsClick(){
 
 		if(finalNode.nodeName != path.end.parent.getAttr('elementId'))
 		{
-			//if the initial connector does not have circuitNode assigned, assign the endconnector circuitnode
+			//if the initial connector does not have circuitNode assigned, assign the endConnector circuitnode
 			console.log("nodo final ya tiene asignado");
 			if(circuitNode == null)
 				circuitNode = circuitNodes[finalNode.nodeName];
@@ -335,25 +347,66 @@ function connectorsClick(){
 		//assign the current/new circuitNode to the graphnodes
 		finalNode.nodeName = initialNode.nodeName = circuitNode.nodeName;
 		circuitNodes[circuitNode.nodeName] = circuitNode;
-		pathString = findPath(initialNode.hash, finalNode.hash, circuitNode.nodeName);
+		pathNodes = findPath(initialNode.hash, finalNode.hash, circuitNode.nodeName);
 		
-		if(pathString.length > 0){
-			var newLine = new Kinetic.Path({
-			    	x: 0,
-		    	   y: 0,
-			      data: pathString,
-			      strokeWidth: 2,
-		        	stroke: 'black'
-		    	});
+		if(pathNodes.length > 0){
+			++counters.L;
+			var gridNode = grid[pathNodes[0]];
+			
+			pathString = "M" + gridNode.x + ","+ gridNode.y + "L" + gridNode.x + ", "+ gridNode.y +" ";
+			circuitNode.gridNodes[pathNodes[0]] = gridNode;
+			gridNode.lines.push('L' + counters.L);
 
-			circuitNodes[circuitNode.nodeName].lines[newLine.id] = newLine;
+			for(i = 1; i < pathNodes.length; i++ )
+			{
+				gridNode = grid[pathNodes[i]];
+				gridNode.nodeName = circuitNode.nodeName;
+				gridNode.lines.push('L' + counters.L);
+				
+				pathString = pathString +"L"+ gridNode.x + "," + gridNode.y + " ";
+				
+				circuitNode.gridNodes[pathNodes[i]] = gridNode;
+			}
+
+			var newLine = new Kinetic.Path({
+			    x: 0,
+		    	y: 0,
+			    data: pathString,
+			    strokeWidth: 2,
+		        stroke: 'black',
+		        id: 'L' + counters.L,
+		        name: 'drawnLine'
+		    });
+
+		    var newHitLine = new Kinetic.Path({
+			    x: 0,
+		    	y: 0,
+			    data: pathString,
+			    strokeWidth: 8,
+			    opacity: 0,
+			    id:'HL' + counters.L
+		    });
+
+			circuitNodes[circuitNode.nodeName].lines['L' + counters.L] = newLine;
+
 			path.start.setAttr('nodeName', circuitNode.nodeName);
 			path.end.setAttr('nodeName', circuitNode.nodeName);
+
 			newLine.setAttr('nodeName', circuitNode.nodeName);
+			newLine.setAttr('gridNodes', pathNodes);
+			newLine.setAttr('startConnector', path.start);
+			newLine.setAttr('endConnector', path.end);
+			newLine.setAttr('hitLineId', 'HL' + counters.L);
+
+			newHitLine.setAttr('refLineId', 'L' + counters.L);
+			newHitLine.on('click', lineClick);
+
+			connectorsLayer.add(newHitLine);
 			connectorsLayer.add(newLine);
 
-			elementsLayer.draw();
-			connectorsLayer.draw();
+			newHitLine.moveToTop();
+
+			stage.draw();
 			delete path.start;
 			delete path.end;
 		}
@@ -384,6 +437,8 @@ function showConnectors(){
 
 	$("#drawing_area").css("cursor","crosshair");
 	elementsLayer.draw();
+
+	state = states.wiring;
 }
 
 function hideConnectors(){
@@ -452,6 +507,10 @@ function placeElement(){
 			newElement.setName('placed');
 			newElement.setAttr('elementId', elementId);
 			newElement.setAttr('value', $("#decimal_input").val());
+
+			newElement.get('.clickArea')[0].on('dblclick', changeValue);
+			newElement.get('.clickArea')[0].on('click', elementClick);
+
 			elementsLayer.add(newElement);
 			newElement.draw();
 			newElement.show();
@@ -506,11 +565,25 @@ function placeElement(){
 			cursor.hide();
 			elementsLayer.draw();
 			testLayer.draw();
-			showCursor = false;
 			md_action = null;
 			$("#decimal_input").val("");
 		}
 	});
+}
+
+function changeValue(){
+	if(state != states.nothing) return;
+
+	var element = this.parent;
+	showModal({
+		header: "Valor de " + element.getAttr('elementId'),
+		caption: "Ingrese el valor para " + texts[element.getAttr('elementType')].type,
+		default_value: this.parent.getAttr('value'),
+		callback: function(){
+			console.log(element);
+			element.setAttr('value', $("#decimal_input").val());
+		}
+	})
 }
  
 function showModal(options){
@@ -518,11 +591,14 @@ function showModal(options){
 	options.caption = options.caption || "Ingrese un valor";
 	options.example = options.example || "Ejemplo: 123.45";
 	options.callback = options.callback || function(){};
+	options.default_value = options.default_value || 1;
+
 	$("#modal_input h4").text(options.header);
 	$("#modal_input label").text(options.caption);
 	$("#modal_input span.help-block").text(options.example);
 	$("#modal_layer, #modal_input").show();
-	$("#decimal_input").val(1);
+	$("#decimal_input").val(options.default_value);
+
 	$("#modal_input a.btn.ok").unbind("click").click(function(){
 		if(!$("#modal_input input").valid())
 			return;
@@ -554,28 +630,34 @@ function nodeAnalysis(groundNodeName){
 		delete group.attrs.SP;
 	})
 
-	//sort the nodes in order to process the ones adjacent to the ground node
+	//set voltage to groundnode
+	groundNode.voltage = 0;
+
+	//sort the nodes in order to process the ones adjacent to the ground node first
 	for(var elementId in groundNode.connectedElements)
 	{
 		currentConnector = groundNode.connectedElements[elementId];
-
-		if(currentConnector.getName() == 'positiveNode')
-			adjacentConnector = currentConnector.parent.get('.negativeNode')[0];
-		else
-			adjacentConnector = currentConnector.parent.get('.positiveNode')[0];
-
+		adjacentConnector = getAdjacentConnector(currentConnector);
 		adjacentNode = circuitNodes[adjacentConnector.getAttr('nodeName')];		
 		
-		if(orderedNodes.indexOf(adjacentNode) != -1) continue;
-
-		if(currentConnector.parent.getAttr('elementType') == 'R')
-			orderedNodes.push(adjacentNode);
-		else
-			orderedNodes.unshift(adjacentNode);
+		switch(currentConnector.parent.getAttr('elementType'))
+		{
+			case "R":
+				if(orderedNodes.indexOf(adjacentNode) == -1)
+					orderedNodes.push(adjacentNode);
+				break;
+			case "VS":
+				adjacentNode.voltage = adjacentConnector.getAttr('multiplier') * currentConnector.parent.getAttr('value');
+				if(orderedNodes.indexOf(adjacentNode) != -1)
+					orderedNodes.splice(orderedNodes.indexOf(adjacentNode), 1);
+				break;
+			default:
+				orderedNodes.unshift(adjacentNode);
+		}
 	}
 
 	for(var nodeName in circuitNodes)
-		if(orderedNodes.indexOf(circuitNodes[nodeName]) == -1 && circuitNodes[nodeName] != groundNode)
+		if(orderedNodes.indexOf(circuitNodes[nodeName]) == -1 && circuitNodes[nodeName] != groundNode && circuitNodes[nodeName].voltage == null)
 			orderedNodes.push(circuitNodes[nodeName]);
 
 	//start process to get the matrix
@@ -585,25 +667,48 @@ function nodeAnalysis(groundNodeName){
 
 		//get the nodes ordered in an array
 		orderedElements = new Array();
+		var pairConnectors;
+
+		//sort elements to process the Voltage source first
+		loop_sortNeighbors:
 		for(var elementId in currentNode.connectedElements)
 		{
-			if(currentNode.connectedElements[elementId].parent.getAttr('elementType') == 'R')
-				orderedElements.push(currentNode.connectedElements[elementId]);
-			else
-				orderedElements.unshift(currentNode.connectedElements[elementId]);
+			pairConnectors = { 
+				currentConnector: currentNode.connectedElements[elementId],
+				adjacentConnector: getAdjacentConnector(currentNode.connectedElements[elementId])
+			};
+
+			switch(pairConnectors.adjacentConnector.parent.getAttr('elementType'))
+			{
+				case "R":
+				case "CS":
+					orderedElements.push(pairConnectors);
+					break;
+				case "VS":
+					adjacentNode = circuitNodes[pairConnectors.adjacentConnector.getAttr('nodeName')];
+
+					//if the adjacent node has voltage calculate current node voltage and break loop
+					if(adjacentNode.voltage != null)
+					{
+						currentNode.voltage = pairConnectors.currentConnector.getAttr('multiplier') * pairConnectors.currentConnector.parent.getAttr('value') + adjacentNode.voltage;
+						break loop_sortNeighbors;
+					}
+					orderedElements.unshift(pairConnectors);
+					break;
+				default:
+					orderedElements.unshift(pairConnectors);
+			}			
 		}
+
+		//if current node has voltage continue with next node
+		if(currentNode.voltage != null) continue;
 
 		SP_name = null;
 		loop_connectedElements:
 		for(var i=0; i<orderedElements.length; ++i)
 		{
-			currentConnector = orderedElements[i];
-
-			if(currentConnector.getName() == 'positiveNode')
-				adjacentConnector = currentConnector.parent.get('.negativeNode')[0];
-			else
-				adjacentConnector = currentConnector.parent.get('.positiveNode')[0];
-
+			currentConnector = orderedElements[i].currentConnector;
+			adjacentConnector = orderedElements[i].adjacentConnector;
 			adjacentNode = circuitNodes[adjacentConnector.getAttr('nodeName')];
 			elementName = currentConnector.parent.getAttr('elementId');
 
@@ -696,58 +801,156 @@ function nodeAnalysis(groundNodeName){
 	var solutionMatrix = numeric.dot(numeric.inv(matrix), xMatrix);
 	
 	$("#analysis_results ul.nav-list li.node_result").remove();
-	console.log($("#analysis_results ul.nav-list li:first"));
 	for(i in cols)
 	{
-		console.log("<li class='node_result' data-node_name='"+ i +"'></li>");
-		$("#analysis_results li.nav-header").after("<li class='node_result' data-node_name='"+ i +"'>" + i + "</li>");
+		circuitNodes[i].voltage = solutionMatrix[cols[i]];
 	}
 
-	console.log($("#analysis_results ul.nav-list li.node_result").length );
-
-	$("#analysis_results ul.nav-list li.node_result").click(function(){
-		connectorsLayer.get("Path").each(function(path){
-			if(path.attrs.nodeName == $(this).data("node_name"))
-				path.setAttr('stroke', 'blue');
-			else
-				path.setAttr('stroke', 'black');
-		});
-	});
+	for(i in circuitNodes)
+		$("#label_results").after("<li class='node_result' data-node_name='"+ i +"'><a href='#'>"+ i + ": " + (Math.round(circuitNodes[i].voltage*1000) / 1000) + "</a></li>");
 
 	console.log(matrix);
 	console.log(xMatrix);
 	console.log(solutionMatrix);
-	console.log(cols);
+}
+
+function elementClick(){
+	if(state != states.nothing) return;
+
+	if(selectedObject && selectedObject.getClassName() == 'Path')
+	{
+		selectedObject.setStroke('black');
+		selectedObject.draw();
+	}
+
+	elementsLayer.get('.placed').each(function(element){
+		element.get('Path')[0].setStroke('black');
+		element.draw();
+	});
+
+	selectedObject = this.parent;
+	selectedObject.get('Path')[0].setStroke('red');
+	selectedObject.draw();
+	elementsLayer.draw();
+	connectorsLayer.draw();
+}
+
+function lineClick(){
+	if(state == states.node_analysis)
+	{
+		selectedObject = connectorsLayer.get('#' + this.getAttr('refLineId'))[0];
+		nodeAnalysis(selectedObject.getAttr("nodeName"));
+	}
+	if(state == states.nothing)
+	{
+		connectorsLayer.get('.drawnLine').each(function(line){
+			line.setStroke('black');
+		});
+
+		if(selectedObject && selectedObject.getClassName() == "Group")
+		{
+			selectedObject.get('Path')[0].setStroke('black');
+			selectedObject.get('Path')[0].draw();
+			stage.draw();
+		}
+
+		selectedObject = connectorsLayer.get('#' + this.getAttr('refLineId'))[0];
+		selectedObject.setStroke('red');
+		selectedObject.moveToTop();
+		this.moveToTop();
+		stage.draw();
+	}
+}
+
+function getAdjacentConnector(currentConnector){
+	if(currentConnector.getName() == 'positiveNode')
+		return currentConnector.parent.get('.negativeNode')[0];
+	else
+		return currentConnector.parent.get('.positiveNode')[0];
+}
+
+function deleteObject(){
+	if(state != states.nothing) return;
+	if(selectedObject)
+	{
+		if(selectedObject.getClassName() == "Path"){
+			var circuitNode = circuitNodes[selectedObject.getAttr("nodeName")];
+			var gridNodes = selectedObject.getAttr('gridNodes');
+			var gridNode;
+
+			for(i=0; i<gridNodes.length; ++i)
+			{
+				gridNode = grid[gridNodes[i]];
+				//remove line id from the lines in the gridnode
+				gridNode.lines.splice(gridNode.lines.indexOf(selectedObject.getId()),1)
+
+				if(gridNode.lines.length == 0)
+					gridNode.nodeName = "";
+			}
+
+			var startConnector = selectedObject.getAttr('startConnector');
+			var endConnector = selectedObject.getAttr('endConnector');
+
+			if(grid[gridNodes[0]].nodeName == "")
+			{
+				endConnector.setAttr('nodeName', endConnector.parent.getAttr('elementId'));
+				grid[gridNodes[0]].nodeName = endConnector.parent.getAttr('elementId');
+				delete circuitNode.connectedElements[endConnector.parent.getAttr('elementId')];
+			}
+
+			if(grid[gridNodes[gridNodes.length-1]].nodeName == "")
+			{
+				startConnector.setAttr('nodeName', startConnector.parent.getAttr('elementId'));
+				grid[gridNodes[gridNodes.length-1]].nodeName = startConnector.parent.getAttr('elementId');
+				delete circuitNode.connectedElements[startConnector.parent.getAttr('elementId')];
+			}
+
+			delete circuitNode.lines[selectedObject.getId()];
+
+			//it is the only line of the circuitnode, must remove it
+			if($.isEmptyObject(circuitNode.lines))
+			{
+				delete circuitNodes[circuitNode.nodeName];
+			}
+
+			console.log(circuitNodes);
+			console.log(selectedObject);
+
+			connectorsLayer.get('#' + selectedObject.getAttr('hitLineId'))[0].destroy();
+			selectedObject.destroy();
+			selectedObject = null;
+
+			stage.draw();
+		}
+	}
 }
 
 function showGroundMessage(){
 	showModalMessage(
-		"", 
-		"<strong>Analisis de nodos: </strong> A continuacion seleccione el nodo tierra para iniciar el analisis de nodos."
+		"Analisis de nodos", 
+		"A continuacion seleccione el nodo tierra para iniciar el analisis de nodos."
 	);
-	
-	connectorsLayer.get("Path").on('click', function()
-	{
-		nodeAnalysis(this.getAttr("nodeName"));
-	});
 
-	connectorsLayer.get("Path").each(function(path){
+	connectorsLayer.get(".drawnLine").each(function(path){
 		path.setAttr('strokeWidth', '3');
 	});
+
+	connectorsLayer.moveToTop();
+	stage.draw();
 
 	$("#drawing_area").css("cursor","default");
 	
 	$("#design_options").slideUp(function(){
 		$("#analysis_results").slideDown();
 	});
+
+	state = states.node_analysis;
 }
 
-function showModalMessage(class_name, message){
-	$("#modal_message div.caption").html(message);
-	$("#modal_message").removeClass();
-	$("#modal_message").addClass("alert " + class_name);
-	$("#modal_message").show();
-	$("#modal_layer").show();
+function showModalMessage(header , body){
+	$("#modal_message h3").html(header);
+	$("#modal_message .modal-body p").html(body);
+	$("#modal_message").modal();
 }
 
 $(function(){
@@ -756,7 +959,7 @@ $(function(){
       container: 'drawing_area',
       width: S_WIDTH,
       height: S_HEIGHT
-   });
+   	});
 	
 	gridLayer = new Kinetic.Layer();
 	elementsLayer = new Kinetic.Layer();
@@ -788,7 +991,7 @@ $(function(){
 	loadCursors();
 
 	//toolbox elements events
-	$("div.toolbox li.element a").click(selectElement);
+	$("div.toolbox li.element a").click(selectElementType);
 
 	$("#tool_wire").click(showConnectors);
 	$("#node_analysis").click(showGroundMessage);
@@ -798,13 +1001,13 @@ $(function(){
 	});
 
 	$("#tool_pointer").click(function(){
-		md_action = null;
+		state = states.nothing;
+
 		$("#drawing_area").css("cursor","default");
 		hideConnectors();
 	});
 
 	$("div.toolbox li.tool a").click(function(){
-		showCursor = false;
 		shortcut.remove('r');
 	});
 
@@ -815,12 +1018,13 @@ $(function(){
 	})
 
 	$("#modal_input").draggable({
-   	handle: ".modal-header",
-   	containment: "parent"
+   		handle: ".modal-header",
+   		containment: "parent"
 	});
 
 	$("#modal_layer, #modal_input").mouseenter(function(){
-		if(cursor) cursor.show();
+		if(state != states.placing) return;
+		cursor.show();
 		elementsLayer.draw();
 	})
 
@@ -853,5 +1057,34 @@ $(function(){
 	  $('#modal_layer, #modal_message').hide();
 	});
 
+	$("#analysis_results ul.nav-list").on('click','li.node_result',function(){
+		var nodeName = $(this).data("node_name");
+		connectorsLayer.get("Path").each(function(path){
+			console.log(nodeName);
+			if(path.attrs.nodeName == nodeName){
+				path.setAttr('stroke', 'blue');
+			}
+			else
+			{
+				path.setAttr('stroke', 'black');
+			}
+			path.draw();
+		});
+	});
+
 	$("#modal_message, #analysis_results").hide();
+
+	$("#back_to_design").click(function(){
+		$("#analysis_results").slideUp(function(){
+			$("#design_options").slideDown();
+			connectorsLayer.get(".drawnLine").each(function(path){
+				path.setAttr('strokeWidth', '2');
+				path.setStroke('black');
+			});
+			stage.draw();
+			state = states.nothing;
+		});
+	});
+
+	shortcut.add('Delete',deleteObject);
 });
