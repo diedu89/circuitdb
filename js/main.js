@@ -298,7 +298,12 @@ function connectorsClick(){
 
 				//copy lines from second node
 				for(index in circuitNodes[finalNode.nodeName].lines)
+				{
 					circuitNode.lines[index] = circuitNodes[finalNode.nodeName].lines[index];
+					circuitNode.lines[index].setAttr('nodeName', circuitNode.nodeName);
+					circuitNode.lines[index].getAttr('startConnector').setAttr('nodeName', circuitNode.nodeName);
+					circuitNode.lines[index].getAttr('endConnector').setAttr('nodeName', circuitNode.nodeName);
+				}
 
 				//copy gridnodes from second node
 				for(index in circuitNodes[finalNode.nodeName].gridNodes)
@@ -351,38 +356,36 @@ function connectorsClick(){
 		
 		if(pathNodes.length > 0){
 			++counters.L;
-			var gridNode = grid[pathNodes[0]];
-			
-			pathString = "M" + gridNode.x + ","+ gridNode.y + "L" + gridNode.x + ", "+ gridNode.y +" ";
-			circuitNode.gridNodes[pathNodes[0]] = gridNode;
-			gridNode.lines.push('L' + counters.L);
+			var lineNodes = [];
+			var gridNode;
 
-			for(i = 1; i < pathNodes.length; i++ )
+			for(i = 0; i < pathNodes.length; i++ )
 			{
 				gridNode = grid[pathNodes[i]];
 				gridNode.nodeName = circuitNode.nodeName;
 				gridNode.lines.push('L' + counters.L);
-				
-				pathString = pathString +"L"+ gridNode.x + "," + gridNode.y + " ";
+
+				lineNodes.push({x: gridNode.x, y: gridNode.y});
 				
 				circuitNode.gridNodes[pathNodes[i]] = gridNode;
 			}
 
-			var newLine = new Kinetic.Path({
+			var newLine = new Kinetic.Line({
 			    x: 0,
 		    	y: 0,
-			    data: pathString,
+			    points: lineNodes,
 			    strokeWidth: 2,
 		        stroke: 'black',
 		        id: 'L' + counters.L,
 		        name: 'drawnLine'
 		    });
 
-		    var newHitLine = new Kinetic.Path({
+		    var newHitLine = new Kinetic.Line({
 			    x: 0,
 		    	y: 0,
-			    data: pathString,
-			    strokeWidth: 8,
+			    points: lineNodes,
+			    strokeWidth: 10,
+			    stroke: 'gray',
 			    opacity: 0,
 			    id:'HL' + counters.L
 		    });
@@ -643,7 +646,7 @@ function nodeAnalysis(groundNodeName){
 		switch(currentConnector.parent.getAttr('elementType'))
 		{
 			case "R":
-				if(orderedNodes.indexOf(adjacentNode) == -1)
+				if(orderedNodes.indexOf(adjacentNode) == -1 && !adjacentNode.voltage)
 					orderedNodes.push(adjacentNode);
 				break;
 			case "VS":
@@ -817,7 +820,7 @@ function nodeAnalysis(groundNodeName){
 function elementClick(){
 	if(state != states.nothing) return;
 
-	if(selectedObject && selectedObject.getClassName() == 'Path')
+	if(selectedObject && selectedObject.getClassName() == 'Line')
 	{
 		selectedObject.setStroke('black');
 		selectedObject.draw();
@@ -839,7 +842,9 @@ function lineClick(){
 	if(state == states.node_analysis)
 	{
 		selectedObject = connectorsLayer.get('#' + this.getAttr('refLineId'))[0];
+		console.log(selectedObject);
 		nodeAnalysis(selectedObject.getAttr("nodeName"));
+		stage.draw();
 	}
 	if(state == states.nothing)
 	{
@@ -873,7 +878,7 @@ function deleteObject(){
 	if(state != states.nothing) return;
 	if(selectedObject)
 	{
-		if(selectedObject.getClassName() == "Path"){
+		if(selectedObject.getClassName() == "Line"){
 			var circuitNode = circuitNodes[selectedObject.getAttr("nodeName")];
 			var gridNodes = selectedObject.getAttr('gridNodes');
 			var gridNode;
@@ -891,11 +896,13 @@ function deleteObject(){
 			var startConnector = selectedObject.getAttr('startConnector');
 			var endConnector = selectedObject.getAttr('endConnector');
 
+			var divideNode=true;
 			if(grid[gridNodes[0]].nodeName == "")
 			{
 				endConnector.setAttr('nodeName', endConnector.parent.getAttr('elementId'));
 				grid[gridNodes[0]].nodeName = endConnector.parent.getAttr('elementId');
 				delete circuitNode.connectedElements[endConnector.parent.getAttr('elementId')];
+				divideNode = false;
 			}
 
 			if(grid[gridNodes[gridNodes.length-1]].nodeName == "")
@@ -903,20 +910,71 @@ function deleteObject(){
 				startConnector.setAttr('nodeName', startConnector.parent.getAttr('elementId'));
 				grid[gridNodes[gridNodes.length-1]].nodeName = startConnector.parent.getAttr('elementId');
 				delete circuitNode.connectedElements[startConnector.parent.getAttr('elementId')];
+				divideNode = false;
 			}
 
 			delete circuitNode.lines[selectedObject.getId()];
 
-			//it is the only line of the circuitnode, must remove it
+			//it is the only line of the circuitnode, must remove the node
 			if($.isEmptyObject(circuitNode.lines))
-			{
 				delete circuitNodes[circuitNode.nodeName];
+
+			console.log(grid[gridNodes[0]]);
+			console.log(endConnector.getAbsolutePosition());
+			if(divideNode){
+				var lineQueue = [];
+				var adjacentConnector;
+				var currentNode;
+				var currentLine;
+				var newCircuitNode = { 
+					nodeName:'N' + (++counters.N), 
+					connectedElements: {}, 
+					lines:{}, 
+					gridNodes:{}
+				};
+
+				currentConnector = endConnector;
+
+				do
+				{
+					currentConnector.setAttr('nodeName', newCircuitNode.nodeName);
+					currentNode = grid[getPosition(currentConnector.getAbsolutePosition()).hash];
+					newCircuitNode.connectedElements[currentConnector.parent.getAttr('elementId')] = currentConnector;
+					
+					for(i=0; i<currentNode.lines.length;++i)
+					{
+						currentLine = connectorsLayer.get('#' + currentNode.lines[i])[0];
+						if(currentLine.getAttr('nodeName') == newCircuitNode.nodeName) continue;
+
+						newCircuitNode.lines[currentLine.getId()] = currentLine;
+						delete circuitNodes[currentLine.getAttr('nodeName')].lines[currentLine.getId()];
+						currentLine.setAttr('nodeName', newCircuitNode.nodeName);
+						for( j = 0; j < currentLine.attrs.gridNodes.length; ++j )
+							grid[currentLine.attrs.gridNodes[j]].nodeName = newCircuitNode.nodeName;
+
+						if(getPosition(currentLine.getAttr('endConnector').getAbsolutePosition()).hash == currentNode.hash)
+							adjacentConnector = currentLine.getAttr('startConnector');
+						else
+							adjacentConnector = currentLine.getAttr('endConnector');
+
+						lineQueue.push(currentLine);
+					}
+
+					currentLine = lineQueue.shift();
+					if(currentLine){
+						currentConnector = currentLine.getAttr('startConnector');
+						if(currentConnector.getAttr('nodeName') == newCircuitNode.nodeName)
+							currentConnector = currentLine.getAttr('endConnector');
+					}
+
+				}while(currentConnector.getAttr('nodeName') != newCircuitNode.nodeName);
+				circuitNodes[newCircuitNode.nodeName] = newCircuitNode;
 			}
 
 			console.log(circuitNodes);
 			console.log(selectedObject);
 
-			connectorsLayer.get('#' + selectedObject.getAttr('hitLineId'))[0].destroy();
+			connectorsLayer.get( '#' + selectedObject.getAttr('hitLineId') )[0].destroy();
 			selectedObject.destroy();
 			selectedObject = null;
 
@@ -979,6 +1037,7 @@ $(function(){
 	elementsLayer.moveToTop();
 	elementsLayer.draw();
 	testLayer.hide();
+
 	// events assignments
 	stage.on('mousedown',mousedown_h);
 	stage.on('mousemove', moveActions);
@@ -1059,8 +1118,7 @@ $(function(){
 
 	$("#analysis_results ul.nav-list").on('click','li.node_result',function(){
 		var nodeName = $(this).data("node_name");
-		connectorsLayer.get("Path").each(function(path){
-			console.log(nodeName);
+		connectorsLayer.get(".drawnLine").each(function(path){
 			if(path.attrs.nodeName == nodeName){
 				path.setAttr('stroke', 'blue');
 			}
@@ -1081,6 +1139,7 @@ $(function(){
 				path.setAttr('strokeWidth', '2');
 				path.setStroke('black');
 			});
+			elementsLayer.moveToTop();
 			stage.draw();
 			state = states.nothing;
 		});
