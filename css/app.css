@@ -39,3 +39,17 @@ div.toolbox img{
 	opacity: 2;
 	position: relative;
 }
+
+#resistor_preview{
+	background-color: #fff;
+}
+
+#ref_polarity, #ref_preview{
+	display: block;
+	float: left;
+	width: 150px;
+}
+
+#ref_preview{
+	margin-left: 30px;
+}

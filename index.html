@@ -17,15 +17,17 @@
         <link rel="stylesheet" href="css/main.css">
         <link rel="stylesheet" href="css/app.css">
         <link rel="stylesheet" href="css/bootstrap.css">
+        <link rel="stylesheet" href="css/bootstrap-switch.css">
+
         <script src="js/vendor/modernizr-2.6.2.min.js"></script>
-        
         <script src="js/vendor/jquery-1.9.1.min.js"></script>
         <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.9.1.min.js"><\/script>')</script>
         <script type="text/javascript" src="js/vendor/jquery-ui-1.10.3.custom.min.js"></script>
         <script type="text/javascript" src="js/vendor/jquery.validate.min.js"></script>
-        <script src="js/vendor/kinetic-v4.5.5.min.js"></script>
+        <script src="js/vendor/kinetic.min.js"></script>
         <script src="js/vendor/shortcut.js"></script>
         <script src="js/vendor/bootstrap.js"></script>
+        <script src="js/vendor/bootstrap-switch.min.js"></script>
         <script src="js/vendor/numeric.min.js"></script>
         <script src="js/astar.js"></script>
         <script src="js/plugins.js"></script>
@@ -95,12 +97,56 @@
                                 </div>   
                                 <div class="modal-body">
                                     <form>
+                                    
                                     <fieldset>
-                                        <label></label>
+                                        <label class="decimal_input"></label>
                                         <input name="decimal_input" id="decimal_input" type="text" placeholder="">
                                         <span class="help-block"></span>
                                     </fieldset>
+                                    
                                     </form>
+                                    
+                                    <div class="dependent_controls">
+
+                                        <fieldset id="ref_var">
+                                            <label>Seleccione la variable a utilizar</label>
+                                            <div class="btn-group" data-toggle="buttons-radio">
+                                              <button type="button" class="btn btn-default btn-small active" value="V">Voltaje</button>
+                                              <button type="button" class="btn btn-default btn-small" value="C">Corriente</button>
+                                            </div>
+                                        </fieldset>
+                                        <br>
+
+                                        <fieldset id="ref_resistor">
+                                            <label>Seleccione la resistencia de referencia</label>
+                                            <div class="btn-group">
+                                                <select class="selectpicker">
+                                                </select>
+                                            </div>
+                                        </fieldset>
+                                        <br>
+
+                                        <fieldset id="ref_polarity">
+                                            <label>Seleccione la <span>polaridad</span></label>
+                                            <div 
+                                                class="make-switch switch-small" 
+                                                data-on="default" 
+                                                data-off="default" 
+                                                data-on-label="+ -" 
+                                                data-off-label="- +"
+                                                data-text-label="V"
+                                            >
+                                                <input type="radio" checked="checked">
+                                            </div>
+                                        </fieldset>
+
+                                        <fieldset id="ref_preview">
+                                            <div id="resistor_preview" style="border: 1px solid black; width: 80px; height:80px;">
+
+                                            </div>
+                                        </fieldset>
+
+                                    </div>
                                 </div>                             
                                 <div class="modal-footer">
                                     <a href="#" class="btn cancel" >Cancelar</a>

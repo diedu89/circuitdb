@@ -384,7 +384,7 @@ function connectorsClick(){
 			    x: 0,
 		    	y: 0,
 			    points: lineNodes,
-			    strokeWidth: 10,
+			    strokeWidth: 12,
 			    stroke: 'gray',
 			    opacity: 0,
 			    id:'HL' + counters.L
@@ -466,18 +466,54 @@ function placeElement(){
 	//place and create the new element
 
 	var elementType = cursor.getAttr("elementType");
+	var headerMessage = "Valor de " + elementType + (counters[elementType] + 1);
+	var captionMessage = "Ingrese el valor de " + texts[elementType].type;
+
 	cursor.show();
-	console.log(cursor);
 	elementsLayer.draw();
+
+	$("#modal_input div.dependent_controls").hide();
+
+	//if it is a dependent source show controls options
+	if(elementType == "VSC" || elementType == "CSC"){
+		$("#modal_input div.dependent_controls").show();
+		previewLayer.removeChildren();
+
+		var placedElements = elementsLayer.get('.placed');
+		
+		$("#ref_resistor select option").remove();
+
+		for(var i=0; i<placedElements.length; ++i){
+			if(placedElements[i].getAttr("elementType") == "R")	
+				$("#ref_resistor select").append('<option>' + placedElements[i].getAttr('elementId') + '</option>');
+		}
+
+		if($("#ref_resistor select option").length == 0)
+		{
+			showModalMessage(
+				"Error:",
+				"Se necesitan resistencias en el circuito para poder colocar una fuente dependiente"
+			);
+			return;
+		}
+
+		$("div.make-switch").bootstrapSwitch('setState', false, true);
+		$("#ref_resistor select").change();
+		$("#ref_var button:first").click();
+
+		captionMessage = "Ingrese el valor de ganancia de la fuente dependiente";
+	}
+
 	showModal({
-		header: "Valor de " + elementType + (counters[elementType] + 1),
-		caption: "Ingrese el valor de " + texts[elementType].type,
+		header: headerMessage,
+		caption: captionMessage,
 		callback: function(){
 			var elementId = elementType + (++counters[elementType]);
 			//var elementType = cursor.getAttr("elementType");
 
 			cursor.setPosition(position.x,position.y);
 			cursor.tkText.setAttr('text', elementId);
+
 			switch(cursor.getRotationDeg() % 360){
 				case 0:
 					cursor.tkText.setPosition(4 + cursor.getWidth() / 2, 0);
@@ -509,7 +545,18 @@ function placeElement(){
 			var newElement = cursor.clone();
 			newElement.setName('placed');
 			newElement.setAttr('elementId', elementId);
+			newElement.setId(elementId);
 			newElement.setAttr('value', $("#decimal_input").val());
+
+			if(elementType == "VSC" || elementType == "CSC")
+			{
+				var previewElement = previewLayer.find('Group')[0];
+				newElement.setAttr('ref_resistor', $("#ref_resistor select").val());
+				newElement.setAttr('ref_var', $('#ref_var button.active').val());
+				newElement.setAttr('ref_polarity', $("div.make-switch").bootstrapSwitch('status'));
+				newElement.setAttr('positiveNode', previewElement.find('.positiveNode')[0].getAttr('polarity'));
+				newElement.setAttr('negativeNode', previewElement.find('.negativeNode')[0].getAttr('polarity'));
+			}
 
 			newElement.get('.clickArea')[0].on('dblclick', changeValue);
 			newElement.get('.clickArea')[0].on('click', elementClick);
@@ -518,7 +565,6 @@ function placeElement(){
 			newElement.draw();
 			newElement.show();
 
-			console.log(elementType);
 			if(elementType == "R")
 			{
 				if(newElement.getRotationDeg() % 180 == 0)
@@ -569,6 +615,7 @@ function placeElement(){
 			elementsLayer.draw();
 			testLayer.draw();
 			md_action = null;
+
 			$("#decimal_input").val("");
 		}
 	});
@@ -578,13 +625,45 @@ function changeValue(){
 	if(state != states.nothing) return;
 
 	var element = this.parent;
+	var elementType = element.getAttr('elementType');
+	$("#modal_input div.dependent_controls").hide();
+
+	//if it is a dependent source show controls options
+	if(elementType == "VSC" || elementType == "CSC"){
+		$("#modal_input div.dependent_controls").show();
+		previewLayer.removeChildren();
+
+		var placedElements = elementsLayer.get('.placed');
+		
+		$("#ref_resistor select option").remove();
+
+		for(var i=0; i<placedElements.length; ++i){
+			if(placedElements[i].getAttr("elementType") == "R")	
+				$("#ref_resistor select").append('<option>' + placedElements[i].getAttr('elementId') + '</option>');
+		}
+
+		$("div.make-switch").bootstrapSwitch('setState', element.getAttr('ref_polarity'), false);
+		$("#ref_resistor select").val(element.getAttr('ref_resistor')).change();
+		console.log($("#ref_var button[value='" + element.getAttr('ref_var') + "']").length);
+		$("#ref_var button[value='" + element.getAttr('ref_var') + "']").click();
+	}
+
 	showModal({
 		header: "Valor de " + element.getAttr('elementId'),
 		caption: "Ingrese el valor para " + texts[element.getAttr('elementType')].type,
 		default_value: this.parent.getAttr('value'),
 		callback: function(){
-			console.log(element);
 			element.setAttr('value', $("#decimal_input").val());
+
+			if(elementType == "VSC" || elementType == "CSC")
+			{
+				var previewElement = previewLayer.find('Group')[0];
+				element.setAttr('ref_resistor', $("#ref_resistor select").val());
+				element.setAttr('ref_var', $('#ref_var button active').val());
+				element.setAttr('ref_polarity', $("div.make-switch").bootstrapSwitch('status'));
+				element.setAttr('positiveNode', previewElement.find('.positiveNode')[0].getAttr('polarity'));
+				element.setAttr('negativeNode', previewElement.find('.negativeNode')[0].getAttr('polarity'));
+			}
 		}
 	})
 }
@@ -597,13 +676,13 @@ function showModal(options){
 	options.default_value = options.default_value || 1;
 
 	$("#modal_input h4").text(options.header);
-	$("#modal_input label").text(options.caption);
+	$("#modal_input label.decimal_input").text(options.caption);
 	$("#modal_input span.help-block").text(options.example);
 	$("#modal_layer, #modal_input").show();
 	$("#decimal_input").val(options.default_value);
 
 	$("#modal_input a.btn.ok").unbind("click").click(function(){
-		if(!$("#modal_input input").valid())
+		if(!$("#decimal_input").valid())
 			return;
 		options.callback();
 		$("#modal_layer, #modal_input").hide();
@@ -698,6 +777,8 @@ function nodeAnalysis(groundNodeName){
 					}
 					orderedElements.unshift(pairConnectors);
 					break;
+				case "CSC":
+					break;
 				default:
 					orderedElements.unshift(pairConnectors);
 			}			
@@ -787,6 +868,12 @@ function nodeAnalysis(groundNodeName){
 		rows[i] = rows_count++;
 		for(var j in ECs[i])
 		{
+			//if the node already has voltage sum the product to X vector
+			if(circuitNodes[j].voltage){
+				X[i] = X[i] || 0;
+				X[i] = X[i] - circuitNodes[j].voltage * ECs[i][j];
+				continue;
+			}
 			if(cols[j] == null)
 				cols[j] = cols_count++;
 		}
@@ -1019,6 +1106,7 @@ $(function(){
       height: S_HEIGHT
    	});
 	
+
 	gridLayer = new Kinetic.Layer();
 	elementsLayer = new Kinetic.Layer();
 	connectorsLayer = new Kinetic.Layer();
@@ -1039,8 +1127,20 @@ $(function(){
 	testLayer.hide();
 
 	// events assignments
-	stage.on('mousedown',mousedown_h);
-	stage.on('mousemove', moveActions);
+	stage.on('contentMousedown',mousedown_h);
+	stage.on('contentMousemove', moveActions);
+
+	stage_preview = new Kinetic.Stage({
+      container: 'resistor_preview',
+      width: 80,
+      height: 80
+   	});
+
+	gridLayer.draw();
+	stage.draw();
+	previewLayer = new Kinetic.Layer();
+
+	stage_preview.add(previewLayer);
 
 	//bizarre problem with kinetic event assignment must to use jquery events
 	$("#drawing_area canvas").mouseleave(hideElement);
@@ -1107,7 +1207,6 @@ $(function(){
 
 	$("#modal_input a.btn.cancel, #modal_input button.close").click(function(){
 		$("#decimal_input").val("");
-		console.log("cancel");
 		validator.resetForm();
 		$("#modal_layer, #modal_input").hide();
 	});
@@ -1119,13 +1218,10 @@ $(function(){
 	$("#analysis_results ul.nav-list").on('click','li.node_result',function(){
 		var nodeName = $(this).data("node_name");
 		connectorsLayer.get(".drawnLine").each(function(path){
-			if(path.attrs.nodeName == nodeName){
+			if(path.attrs.nodeName == nodeName)
 				path.setAttr('stroke', 'blue');
-			}
 			else
-			{
 				path.setAttr('stroke', 'black');
-			}
 			path.draw();
 		});
 	});
@@ -1145,5 +1241,155 @@ $(function(){
 		});
 	});
 
+	$("#ref_resistor select").change(function(){
+		var placedElements = elementsLayer.get('.placed');
+		var selectedId = $(this).val();
+		var i=0;
+		
+		previewLayer.removeChildren();
+
+		for(; i<placedElements.length; ++i)
+			if(placedElements[i].getAttr("elementId") == selectedId) break;	
+
+		var previewElement = placedElements[i].clone({x:40, y:40});
+		previewLayer.add(previewElement);
+		updatePreview();
+	});
+
+	$("#ref_var button").click(function(){
+		$('#ref_var button').addClass('active').not(this).removeClass('active');
+		if($(this).val() == "V")
+		{
+			$("#ref_polarity div.make-switch label").text("V");
+			$("#ref_polarity > label span").text("polaridad");
+			$('div.make-switch').bootstrapSwitch('setOnLabel', '+ -');
+			$('div.make-switch').bootstrapSwitch('setOffLabel', '- +');
+		}else{
+			$("#ref_polarity div.make-switch label").text("C");
+			$("#ref_polarity > label span").text("direccion");
+			$('div.make-switch').bootstrapSwitch('setOnLabel', '<i class="icon-arrow-right" style="color: #fff"></i>');
+			$('div.make-switch').bootstrapSwitch('setOffLabel', '<i class="icon-arrow-left" style="color: #fff"></i>');
+		}
+		updatePreview();
+	});
+
+	$('div.make-switch').on('switch-change', function (e, data) {
+	    updatePreview();
+	});
 	shortcut.add('Delete',deleteObject);
 });
+
+function updatePreview(){
+	if(stage_preview.get('Group').length > 0){
+		var previewElement = stage_preview.get('Group')[0];
+		var firstConnector = previewElement.get('.positiveNode')[0];
+		var secondConnector = previewElement.get('.negativeNode')[0];
+		var pos1 = firstConnector.getAbsolutePosition();
+		var pos2 = secondConnector.getAbsolutePosition();
+
+		if( pos1.x + pos1.y > pos2.x + pos2.y)
+		{
+			var temp = firstConnector;
+			firstConnector = secondConnector;
+			secondConnector = temp;
+ 			temp = pos1;
+ 			pos1 = pos2;
+ 			pos2 = temp;
+		}
+
+		//determinate ...
+		var vertical = pos1.x > pos1.y;
+
+		//determinate the polarity/direction of the variable
+		var polarity = ($('div.make-switch').bootstrapSwitch('status'))?1:-1;
+		firstConnector.setAttr('polarity', 1 * polarity);
+		secondConnector.setAttr('polarity', -1 * polarity);
+
+		if($("#ref_var button.active").val() == "V")
+		{
+			//remove current direction arrow if it exists
+			if(previewLayer.find('.direction').length != 0) previewLayer.find('.direction')[0].destroy() ;
+			
+			//if there isn't polarity signs create them
+			if(previewLayer.find('.polarity+ , .polarity-').length == 0){
+				previewLayer.add(
+					new Kinetic.Text({
+						name: "polarity+",
+						fontSize: 20,
+						fontFamily: "arial",
+						fontStyle: 'bold',
+						fill: 'blue',
+						text: '+'
+					})
+				);
+
+				previewLayer.add(
+					new Kinetic.Text({
+						fontSize: 20,
+						fontFamily: "arial",
+						fontStyle: 'bold',
+						fill: 'blue',
+						name: 'polarity-',
+						text: '-'
+					})
+				);
+			}			
+
+			//set position according to 
+			if(vertical)
+			{
+				previewLayer.find('.polarity+')[0].setPosition({x:pos1.x-20, y:pos1.y});
+				previewLayer.find('.polarity-')[0].setPosition({x:pos2.x-20, y:pos2.y-20});
+			}else{
+				previewLayer.find('.polarity+')[0].setPosition({x:pos1.x,y:pos1.y+10});
+				previewLayer.find('.polarity-')[0].setPosition({x:pos2.x-10,y:pos2.y+10});
+			}
+
+			//swap position of sign if the polarity is inverse
+			if(!$('div.make-switch').bootstrapSwitch('status')){
+				var temp = previewLayer.find('.polarity+')[0].getPosition();
+				previewLayer.find('.polarity+')[0].setPosition( previewLayer.find('.polarity-')[0].getPosition() );
+				previewLayer.find('.polarity-')[0].setPosition(temp);
+			}
+
+		}else{
+			//remove polarity signs if they exist
+			if(previewLayer.find('.polarity+ , .polarity-').length != 0){
+				previewLayer.find('.polarity+')[0].destroy();
+				previewLayer.find('.polarity-')[0].destroy();
+			}
+
+			if(previewLayer.find('.direction').length == 0){
+				previewLayer.add(
+					new Kinetic.Path({
+			        	data: 'M3,0 L3,35 L0,35 L3,40L6,35L3,35z',
+			        	fill: 'blue',
+			        	stroke: 'blue',
+						strokeWidth: 2,
+			        	rotationDeg: 0,
+			        	offset: {x:3,y:20},
+			        	name:'direction'
+			      	})
+				);
+			}
+
+			//rotate 180 if the direction is invers
+			var fixRotation = ( $('div.make-switch').bootstrapSwitch('status') )?0:180;
+
+			//set position according to 
+			if(vertical)
+			{
+				previewLayer.find('.direction')[0]
+				.setPosition({x:pos1.x - 20,y:(pos1.y + pos2.y)/2})
+				.setRotationDeg(0 + fixRotation);
+			}else{
+				previewLayer.find('.direction')[0]
+				.setPosition({x:(pos1.x + pos2.x)/2, y: pos1.y + 20})
+				.setRotationDeg(-90 + fixRotation);
+			}
+		}
+
+		previewElement.moveToBottom();
+		stage_preview.draw();
+	}
+}
