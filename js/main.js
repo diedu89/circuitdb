@@ -725,6 +725,8 @@ function nodeAnalysis(groundNodeName){
 		switch(currentConnector.parent.getAttr('elementType'))
 		{
 			case "R":
+			case "CS":
+			case "CSC":
 				if(orderedNodes.indexOf(adjacentNode) == -1 && !adjacentNode.voltage)
 					orderedNodes.push(adjacentNode);
 				break;
@@ -733,7 +735,7 @@ function nodeAnalysis(groundNodeName){
 				if(orderedNodes.indexOf(adjacentNode) != -1)
 					orderedNodes.splice(orderedNodes.indexOf(adjacentNode), 1);
 				break;
-			default:
+			default: //must to verify this logic
 				orderedNodes.unshift(adjacentNode);
 		}
 	}
@@ -764,6 +766,7 @@ function nodeAnalysis(groundNodeName){
 			{
 				case "R":
 				case "CS":
+				case "CSC":
 					orderedElements.push(pairConnectors);
 					break;
 				case "VS":
@@ -776,8 +779,6 @@ function nodeAnalysis(groundNodeName){
 						break loop_sortNeighbors;
 					}
 					orderedElements.unshift(pairConnectors);
-					break;
-				case "CSC":
 					break;
 				default:
 					orderedElements.unshift(pairConnectors);
@@ -834,7 +835,7 @@ function nodeAnalysis(groundNodeName){
 				case "R":
 					EC_name = currentNode.SP || currentNode.nodeName;
 
-					//if the current resistor is parallel cancel the process
+					//if the current element is parallel cancel the process
 					if(adjacentNode.SP && adjacentNode.SP == EC_name) continue;
 
 					ECs[EC_name] = ECs[EC_name] || {};
@@ -855,6 +856,37 @@ function nodeAnalysis(groundNodeName){
 						}
 
 					}
+					break;
+				case "CSC":
+					EC_name = currentNode.SP || currentNode.nodeName;
+
+					//if the current element is parallel cancel the process
+					if(adjacentNode.SP && adjacentNode.SP == EC_name) continue;
+
+					ECs[EC_name] = ECs[EC_name] || {};
+
+					var placedElements = elementsLayer.find('.placed');
+					var i=0;
+					for(; i < placedElements.length; ++i)
+						if(placedElements[i].attrs.elementId == currentConnector.parent.getAttr('ref_resistor') ) break;
+					
+					var ref_resistor = placedElements[i];
+					var positiveNodeName = ref_resistor.find('.positiveNode')[0].getAttr('nodeName');
+					var negativeNodeName = ref_resistor.find('.negativeNode')[0].getAttr('nodeName');
+					var gain = currentConnector.parent.getAttr('value') * currentConnector.getAttr('multiplier') * -1;
+					var positiveNodePolarity = currentConnector.parent.getAttr('positiveNode');
+					var negativeNodePolarity = currentConnector.parent.getAttr('negativeNode');
+
+					if(positiveNodeName != groundNodeName){
+						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] || 0;
+						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] + gain * positiveNodePolarity / ref_resistor.getAttr('value');
+					}
+
+					if(negativeNodeName != groundNodeName){
+						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] || 0;
+						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] + gain * negativeNodePolarity / ref_resistor.getAttr('value');
+					}
+
 					break;
 			}
 		}
@@ -1380,7 +1412,7 @@ function updatePreview(){
 			if(vertical)
 			{
 				previewLayer.find('.direction')[0]
-				.setPosition({x:pos1.x - 20,y:(pos1.y + pos2.y)/2})
+				.setPosition({x:pos1.x - 15,y:(pos1.y + pos2.y)/2})
 				.setRotationDeg(0 + fixRotation);
 			}else{
 				previewLayer.find('.direction')[0]
