@@ -659,7 +659,7 @@ function changeValue(){
 			{
 				var previewElement = previewLayer.find('Group')[0];
 				element.setAttr('ref_resistor', $("#ref_resistor select").val());
-				element.setAttr('ref_var', $('#ref_var button active').val());
+				element.setAttr('ref_var', $('#ref_var button.active').val());
 				element.setAttr('ref_polarity', $("div.make-switch").bootstrapSwitch('status'));
 				element.setAttr('positiveNode', previewElement.find('.positiveNode')[0].getAttr('polarity'));
 				element.setAttr('negativeNode', previewElement.find('.negativeNode')[0].getAttr('polarity'));
@@ -866,25 +866,29 @@ function nodeAnalysis(groundNodeName){
 					ECs[EC_name] = ECs[EC_name] || {};
 
 					var placedElements = elementsLayer.find('.placed');
-					var i=0;
-					for(; i < placedElements.length; ++i)
-						if(placedElements[i].attrs.elementId == currentConnector.parent.getAttr('ref_resistor') ) break;
+					var n=0;
+					for(; n < placedElements.length; ++n)
+						if(placedElements[n].attrs.elementId == currentConnector.parent.getAttr('ref_resistor') ) break;
 					
-					var ref_resistor = placedElements[i];
+					var ref_resistor = placedElements[n];
 					var positiveNodeName = ref_resistor.find('.positiveNode')[0].getAttr('nodeName');
 					var negativeNodeName = ref_resistor.find('.negativeNode')[0].getAttr('nodeName');
 					var gain = currentConnector.parent.getAttr('value') * currentConnector.getAttr('multiplier') * -1;
 					var positiveNodePolarity = currentConnector.parent.getAttr('positiveNode');
 					var negativeNodePolarity = currentConnector.parent.getAttr('negativeNode');
 
+					if(currentConnector.parent.getAttr('ref_var') != "V"){
+						gain /= ref_resistor.getAttr('value');
+					}
+
 					if(positiveNodeName != groundNodeName){
 						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] || 0;
-						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] + gain * positiveNodePolarity / ref_resistor.getAttr('value');
+						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] + gain * positiveNodePolarity;
 					}
 
 					if(negativeNodeName != groundNodeName){
 						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] || 0;
-						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] + gain * negativeNodePolarity / ref_resistor.getAttr('value');
+						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] + gain * negativeNodePolarity;
 					}
 
 					break;
