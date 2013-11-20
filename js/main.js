@@ -826,36 +826,40 @@ function nodeAnalysis(groundNodeName){
 						currentConnector.parent.setAttr('SP',SP_name);
 					}
 					break;
+				case "VSC":
+					var placedElements = elementsLayer.find('.placed');
+					var n=0;
+					for(; n < placedElements.length; ++n)
+						if(placedElements[n].attrs.elementId == currentConnector.parent.getAttr('ref_resistor') ) break;
+					
+					var ref_resistor = placedElements[n];
+					var positiveNodeName = ref_resistor.find('.positiveNode')[0].getAttr('nodeName');
+					var negativeNodeName = ref_resistor.find('.negativeNode')[0].getAttr('nodeName');
+					var gain = currentConnector.parent.getAttr('value') * currentConnector.getAttr('multiplier') * -1;
+					var positiveNodePolarity = currentConnector.parent.getAttr('positiveNode');
+					var negativeNodePolarity = currentConnector.parent.getAttr('negativeNode');
+
+					if(currentConnector.parent.getAttr('ref_var') != "V"){
+						gain /= ref_resistor.getAttr('value');
+					}
+					
+					if(adjacentNode == groundNode){
+						EC_name = currentNode.nodeName;
+						ECs[EC_name] = {};
+						ECs[EC_name][EC_name] = currentConnector.getAttr('multiplier');
+						ECs[EC_name][positiveNodeName] = gain * positiveNodePolarity;
+						ECs[EC_name][negativeNodeName] = gain * negativeNodePolarity;
+					}else{
+						//must create a supernode
+						console.log('not implemented')
+
+					}
+					break;
 				case "CS":
 					EC_name = currentNode.SP || currentNode.nodeName;
 
 					X[EC_name] = X[EC_name] || 0;
 					X[EC_name] = X[EC_name] + currentConnector.getAttr('multiplier') * parseFloat(currentConnector.parent.getAttr('value'));
-					break;
-				case "R":
-					EC_name = currentNode.SP || currentNode.nodeName;
-
-					//if the current element is parallel cancel the process
-					if(adjacentNode.SP && adjacentNode.SP == EC_name) continue;
-
-					ECs[EC_name] = ECs[EC_name] || {};
-					ECs[EC_name][currentNode.nodeName] = ECs[EC_name][currentNode.nodeName] || 0;
-					ECs[EC_name][currentNode.nodeName] = ECs[EC_name][currentNode.nodeName] + 1 / currentConnector.parent.getAttr('value');
-
-					if(adjacentNode != groundNode)
-					{
-						if(!adjacentNode.voltage)
-						{
-							ECs[EC_name][adjacentNode.nodeName] = ECs[EC_name][adjacentNode.nodeName] || 0;
-							ECs[EC_name][adjacentNode.nodeName] = ECs[EC_name][adjacentNode.nodeName] + (-1 / currentConnector.parent.getAttr('value'));
-						}
-						else
-						{
-							X[EC_name] = X[EC_name] || 0;
-							X[EC_name] = X[EC_name] + adjacentNode.voltage / currentConnector.parent.getAttr('value');
-						}
-
-					}
 					break;
 				case "CSC":
 					EC_name = currentNode.SP || currentNode.nodeName;
@@ -891,6 +895,31 @@ function nodeAnalysis(groundNodeName){
 						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] + gain * negativeNodePolarity;
 					}
 
+					break;
+				case "R":
+					EC_name = currentNode.SP || currentNode.nodeName;
+
+					//if the current element is parallel cancel the process
+					if(adjacentNode.SP && adjacentNode.SP == EC_name) continue;
+
+					ECs[EC_name] = ECs[EC_name] || {};
+					ECs[EC_name][currentNode.nodeName] = ECs[EC_name][currentNode.nodeName] || 0;
+					ECs[EC_name][currentNode.nodeName] = ECs[EC_name][currentNode.nodeName] + 1 / currentConnector.parent.getAttr('value');
+
+					if(adjacentNode != groundNode)
+					{
+						if(!adjacentNode.voltage)
+						{
+							ECs[EC_name][adjacentNode.nodeName] = ECs[EC_name][adjacentNode.nodeName] || 0;
+							ECs[EC_name][adjacentNode.nodeName] = ECs[EC_name][adjacentNode.nodeName] + (-1 / currentConnector.parent.getAttr('value'));
+						}
+						else
+						{
+							X[EC_name] = X[EC_name] || 0;
+							X[EC_name] = X[EC_name] + adjacentNode.voltage / currentConnector.parent.getAttr('value');
+						}
+
+					}
 					break;
 			}
 		}
