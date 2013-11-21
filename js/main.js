@@ -835,7 +835,7 @@ function nodeAnalysis(groundNodeName){
 					var ref_resistor = placedElements[n];
 					var positiveNodeName = ref_resistor.find('.positiveNode')[0].getAttr('nodeName');
 					var negativeNodeName = ref_resistor.find('.negativeNode')[0].getAttr('nodeName');
-					var gain = currentConnector.parent.getAttr('value') * currentConnector.getAttr('multiplier') * -1;
+					var gain = currentConnector.parent.getAttr('value') * -1;
 					var positiveNodePolarity = currentConnector.parent.getAttr('positiveNode');
 					var negativeNodePolarity = currentConnector.parent.getAttr('negativeNode');
 
@@ -847,12 +847,37 @@ function nodeAnalysis(groundNodeName){
 						EC_name = currentNode.nodeName;
 						ECs[EC_name] = {};
 						ECs[EC_name][EC_name] = currentConnector.getAttr('multiplier');
-						ECs[EC_name][positiveNodeName] = gain * positiveNodePolarity;
-						ECs[EC_name][negativeNodeName] = gain * negativeNodePolarity;
+
+						if(positiveNodeName != groundNodeName)
+							ECs[EC_name][positiveNodeName] = gain * positiveNodePolarity;
+
+						if(negativeNodeName != groundNodeName)
+							ECs[EC_name][negativeNodeName] = gain * negativeNodePolarity;	
+
+						break loop_connectedElements;
 					}else{
 						//must create a supernode
-						console.log('not implemented')
+						//get the supernode name or create it if is not setted
+						SP_name = currentNode.SP || adjacentNode.SP;
+						if(SP_name == null) SP_name = "SP" + (++SP_counter);
 
+						currentNode.SP = adjacentNode.SP = SP_name;
+
+						//add ecuation if is hasnt created for this source
+						if(!currentConnector.parent.getAttr('SP'))
+						{
+							ECs[elementName] = {};
+							ECs[elementName][currentNode.nodeName] = currentConnector.getAttr('multiplier');
+							ECs[elementName][adjacentNode.nodeName] = adjacentConnector.getAttr('multiplier');
+							
+							if(positiveNodeName != groundNodeName)
+								ECs[elementName][positiveNodeName] = gain * positiveNodePolarity;
+
+							if(negativeNodeName != groundNodeName)
+								ECs[elementName][negativeNodeName] = gain * negativeNodePolarity;	
+						}
+
+						currentConnector.parent.setAttr('SP',SP_name);
 					}
 					break;
 				case "CS":
@@ -874,6 +899,7 @@ function nodeAnalysis(groundNodeName){
 					for(; n < placedElements.length; ++n)
 						if(placedElements[n].attrs.elementId == currentConnector.parent.getAttr('ref_resistor') ) break;
 					
+					//get the values of the dependent source
 					var ref_resistor = placedElements[n];
 					var positiveNodeName = ref_resistor.find('.positiveNode')[0].getAttr('nodeName');
 					var negativeNodeName = ref_resistor.find('.negativeNode')[0].getAttr('nodeName');
@@ -885,6 +911,7 @@ function nodeAnalysis(groundNodeName){
 						gain /= ref_resistor.getAttr('value');
 					}
 
+					//apply the equations if the node is different to ground
 					if(positiveNodeName != groundNodeName){
 						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] || 0;
 						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] + gain * positiveNodePolarity;
