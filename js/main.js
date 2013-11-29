@@ -45,7 +45,8 @@ var states = {
 	nothing:0,
 	placing:1,
 	wiring:2,
-	node_analysis:3
+	node_analysis:3,
+	thevenin_analysis: 4
 };
 var state = states.nothing;
 
@@ -689,28 +690,58 @@ function showModal(options){
 	})
 }
 
-function nodeAnalysis(groundNodeName){
-	if( Object.keys(circuitNodes).length == 0) return;
+function getCircuit(){
+	var circuit = {};
+	//create circuitNode templates
+	for(var nodeName in circuitNodes) 
+		circuit[nodeName] = {
+			nodeName: nodeName, 
+			connectedElements: {}
+		};
 
-	var groundNode = circuitNodes[groundNodeName];
-	var currentConnector, adjacentConnector;
-	var currentNode, adjacentNode;
-	var SP_name, elementName, EC_name;
+	var currentNode, adjacentNode, currentConnector, adjacentConnector, currentElement;
+	for(var nodeName in circuitNodes){
+		for(var elementName in circuitNodes[nodeName].connectedElements){
+			currentNode = circuit[nodeName];
+			currentConnector = circuitNodes[nodeName].connectedElements[elementName];
+
+			currentElement = currentNode.connectedElements[elementName] = {
+				polarity: parseInt(currentConnector.attrs.multiplier),
+				elementName: currentConnector.parent.attrs.elementId,
+				value: parseFloat(currentConnector.parent.attrs.value),
+				elementType: currentConnector.parent.attrs.elementType
+			};
+
+			if(currentElement.polarity > 0)
+				adjacentConnector = currentConnector.parent.find('.negativeNode')[0];
+			else
+				adjacentConnector = currentConnector.parent.find('.positiveNode')[0];
+
+			currentElement.adjacentNode = circuit[adjacentConnector.attrs.nodeName];
+
+			if(currentConnector.parent.attrs.ref_var){
+				currentElement.ref_var = currentConnector.parent.attrs.ref_var;
+				currentElement.ref_resistor = currentConnector.parent.attrs.ref_resistor;
+				currentElement.ref_polarity = currentConnector.parent.attrs.ref_polarity;
+				currentElement.positiveNodePolarity = currentConnector.parent.attrs.positiveNode;
+				currentElement.negativeNodePolarity = currentConnector.parent.attrs.negativeNode;
+			}
+		}
+	} 	
+	return circuit;
+}
+
+function nodeAnalysis(circuit, groundNodeName){
+
+	if( Object.keys(circuit).length == 0) return;
+
+	var groundNode = circuit[groundNodeName];
+	var currentNode, currentElement;
+	var SP_name, EC_name;
 	var orderedElements, orderedNodes = [];
 	var SP_counter = 0;//supernode counter
-	var ECs = {}; //Ecuations
+	var ECs = {}; //Equations
 	var X = {}; 
-	
-	//clear all node analysis variables
-	for(nodeName in circuitNodes)
-	{
-		delete circuitNodes[nodeName].SP;
-		delete circuitNodes[nodeName].voltage;
-	}
-
-	stage.get('.placed').each(function(group){
-		delete group.attrs.SP;
-	})
 
 	//set voltage to groundnode
 	groundNode.voltage = 0;
@@ -718,31 +749,29 @@ function nodeAnalysis(groundNodeName){
 	//sort the nodes in order to process the ones adjacent to the ground node first
 	for(var elementId in groundNode.connectedElements)
 	{
-		currentConnector = groundNode.connectedElements[elementId];
-		adjacentConnector = getAdjacentConnector(currentConnector);
-		adjacentNode = circuitNodes[adjacentConnector.getAttr('nodeName')];		
+		currentElement = groundNode.connectedElements[elementId];	
 		
-		switch(currentConnector.parent.getAttr('elementType'))
+		switch(currentElement.elementType)
 		{
 			case "R":
 			case "CS":
 			case "CSC":
-				if(orderedNodes.indexOf(adjacentNode) == -1 && !adjacentNode.voltage)
-					orderedNodes.push(adjacentNode);
+				if(orderedNodes.indexOf(currentElement.adjacentNode) == -1 && !currentElement.adjacentNode.voltage)
+					orderedNodes.push(currentElement.adjacentNode);
 				break;
 			case "VS":
-				adjacentNode.voltage = adjacentConnector.getAttr('multiplier') * currentConnector.parent.getAttr('value');
-				if(orderedNodes.indexOf(adjacentNode) != -1)
-					orderedNodes.splice(orderedNodes.indexOf(adjacentNode), 1);
+				currentElement.adjacentNode.voltage = currentElement.polarity * currentElement.value * -1;
+				if(orderedNodes.indexOf(currentElement.adjacentNode) != -1)
+					orderedNodes.splice(orderedNodes.indexOf(currentElement.adjacentNode), 1);
 				break;
 			default: //must to verify this logic
-				orderedNodes.unshift(adjacentNode);
+				orderedNodes.unshift(currentElement.adjacentNode);
 		}
 	}
 
-	for(var nodeName in circuitNodes)
-		if(orderedNodes.indexOf(circuitNodes[nodeName]) == -1 && circuitNodes[nodeName] != groundNode && circuitNodes[nodeName].voltage == null)
-			orderedNodes.push(circuitNodes[nodeName]);
+	for(var nodeName in circuit)
+		if(orderedNodes.indexOf(circuit[nodeName]) == -1 && circuit[nodeName] != groundNode && circuit[nodeName].voltage == null)
+			orderedNodes.push(circuit[nodeName]);
 
 	//start process to get the matrix
 	for(nodeIndex=0; nodeIndex<orderedNodes.length;++nodeIndex)
@@ -751,37 +780,31 @@ function nodeAnalysis(groundNodeName){
 
 		//get the nodes ordered in an array
 		orderedElements = new Array();
-		var pairConnectors;
 
 		//sort elements to process the Voltage source first
 		loop_sortNeighbors:
 		for(var elementId in currentNode.connectedElements)
 		{
-			pairConnectors = { 
-				currentConnector: currentNode.connectedElements[elementId],
-				adjacentConnector: getAdjacentConnector(currentNode.connectedElements[elementId])
-			};
+			currentElement = currentNode.connectedElements[elementId];
 
-			switch(pairConnectors.adjacentConnector.parent.getAttr('elementType'))
+			switch(currentElement.elementType)
 			{
 				case "R":
 				case "CS":
 				case "CSC":
-					orderedElements.push(pairConnectors);
+					orderedElements.push(currentElement);
 					break;
 				case "VS":
-					adjacentNode = circuitNodes[pairConnectors.adjacentConnector.getAttr('nodeName')];
-
 					//if the adjacent node has voltage calculate current node voltage and break loop
-					if(adjacentNode.voltage != null)
+					if(currentElement.adjacentNode.voltage != null)
 					{
-						currentNode.voltage = pairConnectors.currentConnector.getAttr('multiplier') * pairConnectors.currentConnector.parent.getAttr('value') + adjacentNode.voltage;
+						currentNode.voltage = currentElement.polarity * currentElement.value + currentElement.adjacentNode.voltage;
 						break loop_sortNeighbors;
 					}
-					orderedElements.unshift(pairConnectors);
+					orderedElements.unshift(currentElement);
 					break;
 				default:
-					orderedElements.unshift(pairConnectors);
+					orderedElements.unshift(currentElement);
 			}			
 		}
 
@@ -792,158 +815,150 @@ function nodeAnalysis(groundNodeName){
 		loop_connectedElements:
 		for(var i=0; i<orderedElements.length; ++i)
 		{
-			currentConnector = orderedElements[i].currentConnector;
-			adjacentConnector = orderedElements[i].adjacentConnector;
-			adjacentNode = circuitNodes[adjacentConnector.getAttr('nodeName')];
-			elementName = currentConnector.parent.getAttr('elementId');
-
-			switch(currentConnector.parent.getAttr('elementType'))
+			currentElement = orderedElements[i];
+			switch(currentElement.elementType)
 			{
 				case "VS":
 					//if the voltage source is connected to ground assign the voltage to current node
-					if(adjacentNode == groundNode)
+					if(currentElement.adjacentNode == groundNode)
 					{
-						currentNode.voltage = currentConnector.parent.getAttr('value') * currentConnector.getAttr('multiplier');
+						currentNode.voltage = currentElement.value * currentElement.polarity;
 						break loop_connectedElements;
 					}
 					else //it is a supernode
 					{
 						//get the supernode name or create it if is not setted
-						SP_name = currentNode.SP || adjacentNode.SP;
+						SP_name = currentNode.SP || currentElement.adjacentNode.SP;
 						if(SP_name == null) SP_name = "SP" + (++SP_counter);
 
-						currentNode.SP = adjacentNode.SP = SP_name;
+						currentNode.SP = currentElement.adjacentNode.SP = SP_name;
 
 						//add ecuation if is hasnt created for this source
-						if(!currentConnector.parent.getAttr('SP'))
+						if(!currentElement.SP)
 						{
-							ECs[elementName] = {};
-							ECs[elementName][currentNode.nodeName] = currentConnector.getAttr('multiplier');
-							ECs[elementName][adjacentNode.nodeName] = adjacentConnector.getAttr('multiplier');
-							X[elementName] = parseFloat( currentConnector.parent.getAttr('value') );
+							ECs[currentElement.elementName] = {};
+							ECs[currentElement.elementName][currentNode.nodeName] = currentElement.polarity;
+							ECs[currentElement.elementName][currentElement.adjacentNode.nodeName] = currentElement.polarity * -1;
+							X[currentElement.elementName] = parseFloat(currentElement.value);
 						}
 
-						currentConnector.parent.setAttr('SP',SP_name);
+						currentElement.SP = SP_name;
 					}
 					break;
 				case "VSC":
 					var placedElements = elementsLayer.find('.placed');
 					var n=0;
 					for(; n < placedElements.length; ++n)
-						if(placedElements[n].attrs.elementId == currentConnector.parent.getAttr('ref_resistor') ) break;
+						if(placedElements[n].attrs.elementId == currentElement.ref_resistor) break;
 					
 					var ref_resistor = placedElements[n];
 					var positiveNodeName = ref_resistor.find('.positiveNode')[0].getAttr('nodeName');
 					var negativeNodeName = ref_resistor.find('.negativeNode')[0].getAttr('nodeName');
-					var gain = currentConnector.parent.getAttr('value') * -1;
-					var positiveNodePolarity = currentConnector.parent.getAttr('positiveNode');
-					var negativeNodePolarity = currentConnector.parent.getAttr('negativeNode');
+					var gain = currentElement.value * -1;
 
-					if(currentConnector.parent.getAttr('ref_var') != "V"){
+					if(currentElement.ref_var != "V"){
 						gain /= ref_resistor.getAttr('value');
 					}
 					
-					if(adjacentNode == groundNode){
+					if(currentElement.adjacentNode == groundNode){
 						EC_name = currentNode.nodeName;
 						ECs[EC_name] = {};
-						ECs[EC_name][EC_name] = currentConnector.getAttr('multiplier');
+						ECs[EC_name][EC_name] = currentElement.polarity;
 
 						if(positiveNodeName != groundNodeName)
-							ECs[EC_name][positiveNodeName] = gain * positiveNodePolarity;
+							ECs[EC_name][positiveNodeName] = gain * currentElement.positiveNodePolarity;
 
 						if(negativeNodeName != groundNodeName)
-							ECs[EC_name][negativeNodeName] = gain * negativeNodePolarity;	
+							ECs[EC_name][negativeNodeName] = gain * currentElement.negativeNodePolarity;	
 
 						break loop_connectedElements;
 					}else{
 						//must create a supernode
 						//get the supernode name or create it if is not setted
-						SP_name = currentNode.SP || adjacentNode.SP;
+						SP_name = currentNode.SP || currentElement.adjacentNode.SP;
 						if(SP_name == null) SP_name = "SP" + (++SP_counter);
 
-						currentNode.SP = adjacentNode.SP = SP_name;
+						currentNode.SP = currentElement.adjacentNode.SP = SP_name;
 
 						//add ecuation if is hasnt created for this source
-						if(!currentConnector.parent.getAttr('SP'))
+						if(!currentElement.SP)
 						{
-							ECs[elementName] = {};
-							ECs[elementName][currentNode.nodeName] = currentConnector.getAttr('multiplier');
-							ECs[elementName][adjacentNode.nodeName] = adjacentConnector.getAttr('multiplier');
+							ECs[currentElement.elementName] = {};
+							ECs[currentElement.elementName][currentNode.nodeName] = currentElement.polarity;
+							ECs[currentElement.elementName][currentElement.adjacentNode.nodeName] = currentElement.polarity * -1;
 							
 							if(positiveNodeName != groundNodeName)
-								ECs[elementName][positiveNodeName] = gain * positiveNodePolarity;
+								ECs[currentElement.elementName][positiveNodeName] = gain * currentElement.positiveNodePolarity;
 
 							if(negativeNodeName != groundNodeName)
-								ECs[elementName][negativeNodeName] = gain * negativeNodePolarity;	
+								ECs[currentElement.elementName][negativeNodeName] = gain * currentElement.negativeNodePolarity;	
 						}
 
-						currentConnector.parent.setAttr('SP',SP_name);
+						currentElement.SP = SP_name;
 					}
 					break;
 				case "CS":
 					EC_name = currentNode.SP || currentNode.nodeName;
 
 					X[EC_name] = X[EC_name] || 0;
-					X[EC_name] = X[EC_name] + currentConnector.getAttr('multiplier') * parseFloat(currentConnector.parent.getAttr('value'));
+					X[EC_name] = X[EC_name] + currentElement.polarity * parseFloat(currentElement.value);
 					break;
 				case "CSC":
 					EC_name = currentNode.SP || currentNode.nodeName;
 
-					//if the current element is parallel cancel the process
-					if(adjacentNode.SP && adjacentNode.SP == EC_name) continue;
+					//if the current element is parallel in the supernode cancel the process
+					if(currentElement.adjacentNode.SP && currentElement.adjacentNode.SP == EC_name) continue;
 
 					ECs[EC_name] = ECs[EC_name] || {};
 
 					var placedElements = elementsLayer.find('.placed');
 					var n=0;
 					for(; n < placedElements.length; ++n)
-						if(placedElements[n].attrs.elementId == currentConnector.parent.getAttr('ref_resistor') ) break;
+						if(placedElements[n].attrs.elementId == currentElement.ref_resistor) break;
 					
 					//get the values of the dependent source
 					var ref_resistor = placedElements[n];
 					var positiveNodeName = ref_resistor.find('.positiveNode')[0].getAttr('nodeName');
 					var negativeNodeName = ref_resistor.find('.negativeNode')[0].getAttr('nodeName');
-					var gain = currentConnector.parent.getAttr('value') * currentConnector.getAttr('multiplier') * -1;
-					var positiveNodePolarity = currentConnector.parent.getAttr('positiveNode');
-					var negativeNodePolarity = currentConnector.parent.getAttr('negativeNode');
+					var gain = currentElement.value * currentElement.polarity * -1;
 
-					if(currentConnector.parent.getAttr('ref_var') != "V"){
+					if(currentElement.ref_var != "V"){
 						gain /= ref_resistor.getAttr('value');
 					}
 
 					//apply the equations if the node is different to ground
 					if(positiveNodeName != groundNodeName){
 						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] || 0;
-						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] + gain * positiveNodePolarity;
+						ECs[EC_name][positiveNodeName] = ECs[EC_name][positiveNodeName] + gain * currentElement.positiveNodePolarity;
 					}
 
 					if(negativeNodeName != groundNodeName){
 						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] || 0;
-						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] + gain * negativeNodePolarity;
+						ECs[EC_name][negativeNodeName] = ECs[EC_name][negativeNodeName] + gain * currentElement.negativeNodePolarity;
 					}
 
 					break;
 				case "R":
 					EC_name = currentNode.SP || currentNode.nodeName;
 
-					//if the current element is parallel cancel the process
-					if(adjacentNode.SP && adjacentNode.SP == EC_name) continue;
+					//if the current element is parallel in the supernode cancel the process
+					if(currentElement.adjacentNode.SP && currentElement.adjacentNode.SP == EC_name) continue;
 
 					ECs[EC_name] = ECs[EC_name] || {};
 					ECs[EC_name][currentNode.nodeName] = ECs[EC_name][currentNode.nodeName] || 0;
-					ECs[EC_name][currentNode.nodeName] = ECs[EC_name][currentNode.nodeName] + 1 / currentConnector.parent.getAttr('value');
+					ECs[EC_name][currentNode.nodeName] = ECs[EC_name][currentNode.nodeName] + 1 / currentElement.value;
 
-					if(adjacentNode != groundNode)
+					if(currentElement.adjacentNode != groundNode)
 					{
-						if(!adjacentNode.voltage)
+						if(!currentElement.adjacentNode.voltage)
 						{
-							ECs[EC_name][adjacentNode.nodeName] = ECs[EC_name][adjacentNode.nodeName] || 0;
-							ECs[EC_name][adjacentNode.nodeName] = ECs[EC_name][adjacentNode.nodeName] + (-1 / currentConnector.parent.getAttr('value'));
+							ECs[EC_name][currentElement.adjacentNode.nodeName] = ECs[EC_name][currentElement.adjacentNode.nodeName] || 0;
+							ECs[EC_name][currentElement.adjacentNode.nodeName] = ECs[EC_name][currentElement.adjacentNode.nodeName] + (-1 / currentElement.value);
 						}
 						else
 						{
 							X[EC_name] = X[EC_name] || 0;
-							X[EC_name] = X[EC_name] + adjacentNode.voltage / currentConnector.parent.getAttr('value');
+							X[EC_name] = X[EC_name] + currentElement.adjacentNode.voltage / currentElement.value;
 						}
 
 					}
@@ -961,9 +976,9 @@ function nodeAnalysis(groundNodeName){
 		for(var j in ECs[i])
 		{
 			//if the node already has voltage sum the product to X vector
-			if(circuitNodes[j].voltage){
+			if(circuit[j].voltage){
 				X[i] = X[i] || 0;
-				X[i] = X[i] - circuitNodes[j].voltage * ECs[i][j];
+				X[i] = X[i] - circuit[j].voltage * ECs[i][j];
 				continue;
 			}
 			if(cols[j] == null)
@@ -982,14 +997,10 @@ function nodeAnalysis(groundNodeName){
 
 	var solutionMatrix = numeric.dot(numeric.inv(matrix), xMatrix);
 	
-	$("#analysis_results ul.nav-list li.node_result").remove();
 	for(i in cols)
 	{
-		circuitNodes[i].voltage = solutionMatrix[cols[i]];
+		circuit[i].voltage = solutionMatrix[cols[i]];
 	}
-
-	for(i in circuitNodes)
-		$("#label_results").after("<li class='node_result' data-node_name='"+ i +"'><a href='#'>"+ i + ": " + (Math.round(circuitNodes[i].voltage*1000) / 1000) + "</a></li>");
 
 	console.log(matrix);
 	console.log(xMatrix);
@@ -997,6 +1008,10 @@ function nodeAnalysis(groundNodeName){
 }
 
 function elementClick(){
+	if(state == states.thevenin_analysis){
+		thevenin(this.parent.getAttr('elementId'));
+	}
+
 	if(state != states.nothing) return;
 
 	if(selectedObject && selectedObject.getClassName() == 'Line')
@@ -1022,7 +1037,13 @@ function lineClick(){
 	{
 		selectedObject = connectorsLayer.get('#' + this.getAttr('refLineId'))[0];
 		console.log(selectedObject);
-		nodeAnalysis(selectedObject.getAttr("nodeName"));
+		var circuit = getCircuit();
+		nodeAnalysis(circuit,selectedObject.getAttr("nodeName"));
+
+		$("#analysis_results ul.nav-list li.node_result").remove();
+		for(i in circuit)
+			$("#label_results").after("<li class='node_result' data-node_name='"+ i +"'><a href='#'>"+ i + ": " + (Math.round(circuit[i].voltage*1000) / 1000) + "</a></li>");
+		
 		stage.draw();
 	}
 	if(state == states.nothing)
@@ -1184,6 +1205,28 @@ function showGroundMessage(){
 	state = states.node_analysis;
 }
 
+function showTheveninMessage(){
+	showModalMessage(
+		"Equivalente de Thevenin", 
+		"Seleccione la resistencia para obtener el equivalente de thevenin correspondiente."
+	);
+
+	connectorsLayer.get(".placed").each(function(path){
+		path.setAttr('strokeWidth', '3');
+	});
+
+	elementsLayer.moveToTop();
+	stage.draw();
+
+	$("#drawing_area").css("cursor","default");
+	
+	$("#design_options").slideUp(function(){
+		$("#analysis_results").slideDown();
+	});
+
+	state = states.thevenin_analysis;
+}
+
 function showModalMessage(header , body){
 	$("#modal_message h3").html(header);
 	$("#modal_message .modal-body p").html(body);
@@ -1246,6 +1289,7 @@ $(function(){
 
 	$("#tool_wire").click(showConnectors);
 	$("#node_analysis").click(showGroundMessage);
+	$("#thevenin_analysis").click(showTheveninMessage);
 	
 	$("div.toolbox li a[id!=tool_wire]").click(function(){
 		hideConnectors();
@@ -1322,6 +1366,7 @@ $(function(){
 
 	$("#back_to_design").click(function(){
 		$("#analysis_results").slideUp(function(){
+			$("#analysis_results ul.nav-list li.node_result").remove();
 			$("#design_options").slideDown();
 			connectorsLayer.get(".drawnLine").each(function(path){
 				path.setAttr('strokeWidth', '2');
@@ -1484,4 +1529,111 @@ function updatePreview(){
 		previewElement.moveToBottom();
 		stage_preview.draw();
 	}
+}
+
+function thevenin(elementId){
+	var circuitOff = getCircuit();
+	var circuitOn = getCircuit();
+	var currentNode, currentElement, elements;
+	var nodeA, nodeB, nodeAOn, nodeBOn;
+
+	//find the voltage sources to merge nodes
+	for(var nodeName in circuitOff){
+		currentNode =  circuitOff[nodeName];
+		elements = currentNode.connectedElements;
+		for(var elementName in elements){
+			currentElement = elements[elementName];
+			if(currentElement.elementType == "VS"){
+				//copy the connected elements on adjacent node to merge them
+				for(var nodeElement in currentElement.adjacentNode.connectedElements){
+					if(nodeElement == elementName) continue;
+					currentElement.adjacentNode.connectedElements[nodeElement].adjacentNode.connectedElements[nodeElement].adjacentNode = currentNode;	
+					currentNode.connectedElements[nodeElement] = currentElement.adjacentNode.connectedElements[nodeElement];
+				}
+				
+				delete currentNode.connectedElements[elementName];
+				delete circuitOff[currentElement.adjacentNode.nodeName];
+			}
+
+			if(elementName == elementId){
+				nodeAOn = nodeA = currentNode.nodeName;
+				nodeBOn = nodeB = currentElement.adjacentNode.nodeName;
+			}
+		}
+	}
+
+	//find the current source and the resistor to delete them
+	for(var nodeName in circuitOff){
+		currentNode =  circuitOff[nodeName];
+		elements = currentNode.connectedElements;
+		for(var elementName in elements){
+			currentElement = elements[elementName];
+
+			if(currentElement.elementName == elementId){
+				delete currentNode.connectedElements[elementName];
+				delete circuitOn[currentNode.nodeName].connectedElements[elementName];
+			}
+
+			if(currentElement.elementType == "CS"){
+				delete currentNode.connectedElements[elementName];
+				if(currentNode.nodeName == nodeA)
+					nodeA = currentElement.adjacentNode.nodeName;
+				if(currentNode.nodeName == nodeB)
+					nodeB = currentElement.adjacentNode.nodeName;
+			}
+		}
+	}
+
+	if(counters.VSC + counters.CSC == 0){
+		circuitOff[nodeB].visited_eq = true;
+		var RT = getEquivalentResistor(circuitOff, nodeA);
+
+		var keys;
+		var old;
+		while((keys = Object.keys(circuitOn[nodeAOn].connectedElements)).length < 2){
+			old = nodeAOn;
+			nodeAOn = circuitOn[nodeAOn].connectedElements[keys[0]].adjacentNode.nodeName;
+			delete circuitOn[old];
+			delete circuitOn[nodeAOn].connectedElements[keys[0]];
+		}		
+
+		while((keys = Object.keys(circuitOn[nodeBOn].connectedElements)).length < 2){
+			old = nodeBOn;
+			nodeBOn = circuitOn[nodeBOn].connectedElements[keys[0]].adjacentNode.nodeName;
+			delete circuitOn[old];
+			delete circuitOn[nodeBOn].connectedElements[keys[0]];
+		}		
+	}
+
+	nodeAnalysis(circuitOn, nodeBOn);
+	$("#analysis_results ul.nav-list li.node_result").remove();
+	console.log(circuitOn);
+	$("#label_results").after("<li class='node_result'><a href='#'>Rth: " + (Math.round(RT * 1000) / 1000) + "</a></li>");
+	$("#label_results").after("<li class='node_result'><a href='#'>Vth: " + (Math.round(parseFloat(circuitOn[nodeAOn].voltage) * 1000) / 1000) + "</a></li>");
+
+}
+
+function getEquivalentResistor(circuit, nodeA){
+	var equivalent = 0;
+	var currentElement;
+	var nextEquivalent=0;
+	if(circuit[nodeA].visited_eq) return 0;
+
+	for(var elementName in circuit[nodeA].connectedElements){
+		currentElement = circuit[nodeA].connectedElements[elementName];
+		if(circuit[currentElement.adjacentNode.nodeName] && !currentElement.visited_eq){
+			currentElement.adjacentNode.connectedElements[elementName].visited_eq = true;
+			currentElement.visited_eq = true;
+			nextEquivalent = getEquivalentResistor(circuit, currentElement.adjacentNode.nodeName);
+			console.log(nextEquivalent)
+			equivalent += 1/(currentElement.value + nextEquivalent);
+		}
+	}
+
+	circuit[nodeA].visited_eq= true;
+
+	if(equivalent != 0)
+		return 1 / equivalent;
+	else
+		return 0;
 }
