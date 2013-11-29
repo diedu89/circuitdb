@@ -866,10 +866,10 @@ function nodeAnalysis(circuit, groundNodeName){
 						ECs[EC_name][EC_name] = currentElement.polarity;
 
 						if(positiveNodeName != groundNodeName)
-							ECs[EC_name][positiveNodeName] = gain * currentElement.positiveNodePolarity;
+							ECs[EC_name][positiveNodeName] += gain * currentElement.positiveNodePolarity;
 
 						if(negativeNodeName != groundNodeName)
-							ECs[EC_name][negativeNodeName] = gain * currentElement.negativeNodePolarity;	
+							ECs[EC_name][negativeNodeName] += gain * currentElement.negativeNodePolarity;	
 
 						break loop_connectedElements;
 					}else{
@@ -888,10 +888,10 @@ function nodeAnalysis(circuit, groundNodeName){
 							ECs[currentElement.elementName][currentElement.adjacentNode.nodeName] = currentElement.polarity * -1;
 							
 							if(positiveNodeName != groundNodeName)
-								ECs[currentElement.elementName][positiveNodeName] = gain * currentElement.positiveNodePolarity;
+								ECs[currentElement.elementName][positiveNodeName] += gain * currentElement.positiveNodePolarity;
 
 							if(negativeNodeName != groundNodeName)
-								ECs[currentElement.elementName][negativeNodeName] = gain * currentElement.negativeNodePolarity;	
+								ECs[currentElement.elementName][negativeNodeName] += gain * currentElement.negativeNodePolarity;	
 						}
 
 						currentElement.SP = SP_name;
@@ -1587,30 +1587,50 @@ function thevenin(elementId){
 	if(counters.VSC + counters.CSC == 0){
 		circuitOff[nodeB].visited_eq = true;
 		var RT = getEquivalentResistor(circuitOff, nodeA);
+	
+	}else{
+		circuitOff[nodeA].connectedElements.CST = {
+			polarity: 1,
+			elementName: 'CST',
+			value: 1,
+			elementType: 'CS',
+			adjacentNode: circuitOff[nodeB]
+		}
 
-		var keys;
-		var old;
-		while((keys = Object.keys(circuitOn[nodeAOn].connectedElements)).length < 2){
-			old = nodeAOn;
-			nodeAOn = circuitOn[nodeAOn].connectedElements[keys[0]].adjacentNode.nodeName;
-			delete circuitOn[old];
-			delete circuitOn[nodeAOn].connectedElements[keys[0]];
-		}		
+		circuitOff[nodeB].connectedElements.CST = {
+			polarity: -1,
+			elementName: 'CST',
+			value: 1,
+			elementType: 'CS',
+			adjacentNode: circuitOff[nodeA]
+		}
 
-		while((keys = Object.keys(circuitOn[nodeBOn].connectedElements)).length < 2){
-			old = nodeBOn;
-			nodeBOn = circuitOn[nodeBOn].connectedElements[keys[0]].adjacentNode.nodeName;
-			delete circuitOn[old];
-			delete circuitOn[nodeBOn].connectedElements[keys[0]];
-		}		
+		nodeAnalysis(circuitOff, nodeB);
+
+		RT = circuitOff[nodeA].voltage;
 	}
+
+	var keys;
+	var old;
+	while((keys = Object.keys(circuitOn[nodeAOn].connectedElements)).length < 2){
+		old = nodeAOn;
+		nodeAOn = circuitOn[nodeAOn].connectedElements[keys[0]].adjacentNode.nodeName;
+		delete circuitOn[old];
+		delete circuitOn[nodeAOn].connectedElements[keys[0]];
+	}		
+
+	while((keys = Object.keys(circuitOn[nodeBOn].connectedElements)).length < 2){
+		old = nodeBOn;
+		nodeBOn = circuitOn[nodeBOn].connectedElements[keys[0]].adjacentNode.nodeName;
+		delete circuitOn[old];
+		delete circuitOn[nodeBOn].connectedElements[keys[0]];
+	}	
 
 	nodeAnalysis(circuitOn, nodeBOn);
 	$("#analysis_results ul.nav-list li.node_result").remove();
 	console.log(circuitOn);
 	$("#label_results").after("<li class='node_result'><a href='#'>Rth: " + (Math.round(RT * 1000) / 1000) + "</a></li>");
 	$("#label_results").after("<li class='node_result'><a href='#'>Vth: " + (Math.round(parseFloat(circuitOn[nodeAOn].voltage) * 1000) / 1000) + "</a></li>");
-
 }
 
 function getEquivalentResistor(circuit, nodeA){
