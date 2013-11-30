@@ -1556,8 +1556,8 @@ function thevenin(elementId){
 			}
 
 			if(elementName == elementId){
-				nodeAOn = nodeA = currentNode.nodeName;
-				nodeBOn = nodeB = currentElement.adjacentNode.nodeName;
+				nodeA = currentNode.nodeName;
+				nodeB = currentElement.adjacentNode.nodeName;
 			}
 		}
 	}
@@ -1566,23 +1566,41 @@ function thevenin(elementId){
 	for(var nodeName in circuitOff){
 		currentNode =  circuitOff[nodeName];
 		elements = currentNode.connectedElements;
+		var nodeCount = Object.keys(currentNode.connectedElements).length;
 		for(var elementName in elements){
 			currentElement = elements[elementName];
 
 			if(currentElement.elementName == elementId){
 				delete currentNode.connectedElements[elementName];
-				delete circuitOn[currentNode.nodeName].connectedElements[elementName];
 			}
 
 			if(currentElement.elementType == "CS"){
 				delete currentNode.connectedElements[elementName];
-				if(currentNode.nodeName == nodeA)
+				if(currentNode.nodeName == nodeA && nodeCount < 2)
 					nodeA = currentElement.adjacentNode.nodeName;
-				if(currentNode.nodeName == nodeB)
+				if(currentNode.nodeName == nodeB && nodeCount < 2)
 					nodeB = currentElement.adjacentNode.nodeName;
 			}
 		}
 	}
+
+	//must add a extra iteration to assign the correct terminals for circuit on
+	for(var nodeName in circuitOn){
+		currentNode =  circuitOn[nodeName];
+		elements = currentNode.connectedElements;
+		for(var elementName in elements){
+			currentElement = elements[elementName];
+			if(elementName == elementId){
+				nodeAOn = currentNode.nodeName;
+				nodeBOn = currentElement.adjacentNode.nodeName;
+			}
+		}
+	}
+
+	delete circuitOff[nodeA].connectedElements[elementId];
+	delete circuitOff[nodeB].connectedElements[elementId];
+	delete circuitOn[nodeAOn].connectedElements[elementId];
+	delete circuitOn[nodeBOn].connectedElements[elementId];	
 
 	if(counters.VSC + counters.CSC == 0){
 		circuitOff[nodeB].visited_eq = true;
